@@ -102,7 +102,6 @@ function onWheel(e: WheelEvent) {
   inset: 0;
   z-index: 0;
   background-color: var(--bg-secondary);
-  background-image: radial-gradient(circle, var(--border-color) 0.8px, transparent 0.8px);
   background-size: 24px 24px;
   pointer-events: all;
 }

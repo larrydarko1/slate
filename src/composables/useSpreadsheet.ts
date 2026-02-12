@@ -1,11 +1,12 @@
 import { ref, type InjectionKey } from 'vue'
-import type { SpreadsheetTable, Cell, CellValue, CellReference } from '../types/spreadsheet'
+import type { SpreadsheetTable, Cell, CellValue, CellReference, MergedRegion, SelectionRange } from '../types/spreadsheet'
 import { generateId, createDefaultTable, createEmptyCell } from '../types/spreadsheet'
 import { evaluateFormula } from '../engine/formula'
 
 export function useSpreadsheet() {
     const tables = ref<SpreadsheetTable[]>([])
     const activeCell = ref<CellReference | null>(null)
+    const selectionRange = ref<SelectionRange | null>(null)
     const isEditing = ref(false)
     const editValue = ref('')
     const canvasOffset = ref({ x: 0, y: 0 })
@@ -62,6 +63,16 @@ export function useSpreadsheet() {
     function deleteRow(tableId: string, rowIdx: number) {
         const t = findTable(tableId)
         if (!t || t.rows.length <= 1) return
+        // Remove merges that collapse to nothing, shrink others
+        t.mergedRegions = t.mergedRegions
+            .map(m => {
+                if (rowIdx < m.startRow) return { ...m, startRow: m.startRow - 1, endRow: m.endRow - 1 }
+                if (rowIdx > m.endRow) return m
+                // Row is inside the merge
+                if (m.startRow === m.endRow) return null // single-row merge gone
+                return { ...m, endRow: m.endRow - 1 }
+            })
+            .filter((m): m is MergedRegion => m !== null && (m.startRow !== m.endRow || m.startCol !== m.endCol))
         t.rows.splice(rowIdx, 1)
         if (activeCell.value?.tableId === tableId && activeCell.value.row >= t.rows.length) {
             activeCell.value.row = t.rows.length - 1
@@ -72,6 +83,16 @@ export function useSpreadsheet() {
     function deleteColumn(tableId: string, colIdx: number) {
         const t = findTable(tableId)
         if (!t || t.columns.length <= 1) return
+        // Remove merges that collapse to nothing, shrink others
+        t.mergedRegions = t.mergedRegions
+            .map(m => {
+                if (colIdx < m.startCol) return { ...m, startCol: m.startCol - 1, endCol: m.endCol - 1 }
+                if (colIdx > m.endCol) return m
+                // Col is inside the merge
+                if (m.startCol === m.endCol) return null // single-col merge gone
+                return { ...m, endCol: m.endCol - 1 }
+            })
+            .filter((m): m is MergedRegion => m !== null && (m.startRow !== m.endRow || m.startCol !== m.endCol))
         t.columns.splice(colIdx, 1)
         for (const row of t.rows) row.splice(colIdx, 1)
         if (activeCell.value?.tableId === tableId && activeCell.value.col >= t.columns.length) {
@@ -83,6 +104,12 @@ export function useSpreadsheet() {
     function insertRowAt(tableId: string, rowIdx: number) {
         const t = findTable(tableId)
         if (!t) return
+        // Shift merged regions
+        t.mergedRegions = t.mergedRegions.map(m => {
+            if (rowIdx <= m.startRow) return { ...m, startRow: m.startRow + 1, endRow: m.endRow + 1 }
+            if (rowIdx <= m.endRow) return { ...m, endRow: m.endRow + 1 }
+            return m
+        })
         t.rows.splice(rowIdx, 0, t.columns.map(() => createEmptyCell()))
         recalculate()
     }
@@ -90,6 +117,12 @@ export function useSpreadsheet() {
     function insertColumnAt(tableId: string, colIdx: number) {
         const t = findTable(tableId)
         if (!t) return
+        // Shift merged regions
+        t.mergedRegions = t.mergedRegions.map(m => {
+            if (colIdx <= m.startCol) return { ...m, startCol: m.startCol + 1, endCol: m.endCol + 1 }
+            if (colIdx <= m.endCol) return { ...m, endCol: m.endCol + 1 }
+            return m
+        })
         t.columns.splice(colIdx, 0, { id: generateId('col'), width: 120 })
         for (const row of t.rows) row.splice(colIdx, 0, createEmptyCell())
         recalculate()
@@ -162,7 +195,46 @@ export function useSpreadsheet() {
     function selectCell(tableId: string, col: number, row: number) {
         if (isEditing.value) commitEdit()
         activeCell.value = { tableId, col, row }
+        selectionRange.value = { tableId, startCol: col, startRow: row, endCol: col, endRow: row }
         bringToFront(tableId)
+    }
+
+    function extendSelection(tableId: string, col: number, row: number) {
+        if (!activeCell.value || activeCell.value.tableId !== tableId) return
+        if (isEditing.value) commitEdit()
+        const sr = selectionRange.value!
+        selectionRange.value = {
+            tableId,
+            startCol: sr.startCol,
+            startRow: sr.startRow,
+            endCol: col,
+            endRow: row,
+        }
+    }
+
+    /** Return a normalized (min/max) selection range */
+    function getNormalizedSelection(): SelectionRange | null {
+        const sr = selectionRange.value
+        if (!sr) return null
+        return {
+            tableId: sr.tableId,
+            startCol: Math.min(sr.startCol, sr.endCol),
+            startRow: Math.min(sr.startRow, sr.endRow),
+            endCol: Math.max(sr.startCol, sr.endCol),
+            endRow: Math.max(sr.startRow, sr.endRow),
+        }
+    }
+
+    function isInSelection(tableId: string, col: number, row: number): boolean {
+        const sr = getNormalizedSelection()
+        if (!sr || sr.tableId !== tableId) return false
+        return col >= sr.startCol && col <= sr.endCol && row >= sr.startRow && row <= sr.endRow
+    }
+
+    function hasMultiCellSelection(): boolean {
+        const sr = getNormalizedSelection()
+        if (!sr) return false
+        return sr.startCol !== sr.endCol || sr.startRow !== sr.endRow
     }
 
     function startEditing(initialValue?: string) {
@@ -188,6 +260,93 @@ export function useSpreadsheet() {
         if (!activeCell.value) return
         const { tableId, col, row } = activeCell.value
         setCellValue(tableId, col, row, '')
+    }
+
+    // ── Merge / Unmerge ──
+
+    function getMergedRegionAt(tableId: string, col: number, row: number): MergedRegion | null {
+        const t = findTable(tableId)
+        if (!t) return null
+        return t.mergedRegions.find(
+            m => col >= m.startCol && col <= m.endCol && row >= m.startRow && row <= m.endRow
+        ) ?? null
+    }
+
+    function isMergedOrigin(tableId: string, col: number, row: number): MergedRegion | null {
+        const t = findTable(tableId)
+        if (!t) return null
+        return t.mergedRegions.find(m => m.startCol === col && m.startRow === row) ?? null
+    }
+
+    function isCellHiddenByMerge(tableId: string, col: number, row: number): boolean {
+        const m = getMergedRegionAt(tableId, col, row)
+        if (!m) return false
+        return !(m.startCol === col && m.startRow === row)
+    }
+
+    function mergeCells(tableId: string, startCol: number, startRow: number, endCol: number, endRow: number) {
+        const t = findTable(tableId)
+        if (!t) return
+        if (startCol === endCol && startRow === endRow) return // single cell, nothing to merge
+
+        // Ensure correct order
+        const sc = Math.min(startCol, endCol)
+        const sr = Math.min(startRow, endRow)
+        const ec = Math.max(startCol, endCol)
+        const er = Math.max(startRow, endRow)
+
+        // Remove any existing merge regions that overlap
+        t.mergedRegions = t.mergedRegions.filter(
+            m => m.endCol < sc || m.startCol > ec || m.endRow < sr || m.startRow > er
+        )
+
+        // Keep value of top-left cell, clear all others
+        for (let r = sr; r <= er; r++) {
+            for (let c = sc; c <= ec; c++) {
+                if (r === sr && c === sc) continue
+                if (t.rows[r]?.[c]) {
+                    t.rows[r][c] = createEmptyCell()
+                }
+            }
+        }
+
+        t.mergedRegions.push({ startCol: sc, startRow: sr, endCol: ec, endRow: er })
+    }
+
+    function unmergeCells(tableId: string, col: number, row: number) {
+        const t = findTable(tableId)
+        if (!t) return
+        const idx = t.mergedRegions.findIndex(
+            m => col >= m.startCol && col <= m.endCol && row >= m.startRow && row <= m.endRow
+        )
+        if (idx >= 0) t.mergedRegions.splice(idx, 1)
+    }
+
+    function mergeSelection() {
+        const sr = getNormalizedSelection()
+        if (!sr) return
+        mergeCells(sr.tableId, sr.startCol, sr.startRow, sr.endCol, sr.endRow)
+    }
+
+    function unmergeSelection() {
+        const sr = getNormalizedSelection()
+        if (!sr) return
+        // Unmerge all regions that intersect the selection
+        const t = findTable(sr.tableId)
+        if (!t) return
+        t.mergedRegions = t.mergedRegions.filter(
+            m => m.endCol < sr.startCol || m.startCol > sr.endCol || m.endRow < sr.startRow || m.startRow > sr.endRow
+        )
+    }
+
+    function selectionHasMerge(): boolean {
+        const sr = getNormalizedSelection()
+        if (!sr) return false
+        const t = findTable(sr.tableId)
+        if (!t) return false
+        return t.mergedRegions.some(
+            m => !(m.endCol < sr.startCol || m.startCol > sr.endCol || m.endRow < sr.startRow || m.startRow > sr.endRow)
+        )
     }
 
     // ── Navigation ──
@@ -266,7 +425,10 @@ export function useSpreadsheet() {
         try {
             const data = JSON.parse(jsonContent)
             if (data.tables) {
-                tables.value = data.tables
+                tables.value = data.tables.map((t: any) => ({
+                    ...t,
+                    mergedRegions: t.mergedRegions ?? [],
+                }))
                 maxZ = Math.max(0, ...tables.value.map(t => t.zIndex))
                 tableCount = tables.value.length
             }
@@ -353,6 +515,7 @@ export function useSpreadsheet() {
         // State
         tables,
         activeCell,
+        selectionRange,
         isEditing,
         editValue,
         canvasOffset,
@@ -379,8 +542,24 @@ export function useSpreadsheet() {
         getDisplayValue,
         getRawValue,
 
-        // Editing
+        // Selection
         selectCell,
+        extendSelection,
+        getNormalizedSelection,
+        isInSelection,
+        hasMultiCellSelection,
+
+        // Merge
+        getMergedRegionAt,
+        isMergedOrigin,
+        isCellHiddenByMerge,
+        mergeCells,
+        unmergeCells,
+        mergeSelection,
+        unmergeSelection,
+        selectionHasMerge,
+
+        // Editing
         startEditing,
         commitEdit,
         cancelEdit,

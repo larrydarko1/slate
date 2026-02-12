@@ -6,6 +6,8 @@
       @newFile="handleNewFile"
       @openFile="ss.openFile"
       @saveFile="ss.saveFile"
+      @mergeCells="ss.mergeSelection"
+      @unmergeCells="ss.unmergeSelection"
     />
     <FormulaBar />
     <CanvasWorkspace />

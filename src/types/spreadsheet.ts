@@ -15,6 +15,21 @@ export interface CellFormat {
     bgColor?: string
 }
 
+export interface MergedRegion {
+    startCol: number
+    startRow: number
+    endCol: number
+    endRow: number
+}
+
+export interface SelectionRange {
+    tableId: string
+    startCol: number
+    startRow: number
+    endCol: number
+    endRow: number
+}
+
 export interface Column {
     id: string
     width: number
@@ -29,6 +44,7 @@ export interface SpreadsheetTable {
     columns: Column[]
     rows: Cell[][]            // rows[rowIndex][colIndex]
     headerRows: number
+    mergedRegions: MergedRegion[]
 }
 
 export interface CellReference {
@@ -92,5 +108,6 @@ export function createDefaultTable(x: number, y: number, name: string): Spreadsh
         columns,
         rows,
         headerRows: 1,
+        mergedRegions: [],
     }
 }

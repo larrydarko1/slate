@@ -94,7 +94,7 @@ watch(() => ss.isEditing.value, (editing) => {
   align-items: center;
   height: 32px;
   padding: 0 12px;
-  background: var(--bg-primary);
+  background: var(--bg-secondary);
   border-bottom: 1px solid var(--border-color);
   flex-shrink: 0;
   -webkit-app-region: no-drag;
@@ -110,6 +110,7 @@ watch(() => ss.isEditing.value, (editing) => {
   overflow: hidden;
   text-overflow: ellipsis;
   padding-right: 8px;
+  letter-spacing: 0.01em;
 }
 
 .cell-ref-empty {
@@ -118,7 +119,7 @@ watch(() => ss.isEditing.value, (editing) => {
 
 .formula-separator {
   width: 1px;
-  height: 18px;
+  height: 16px;
   background: var(--border-color);
   margin-right: 8px;
   flex-shrink: 0;
@@ -132,10 +133,11 @@ watch(() => ss.isEditing.value, (editing) => {
 }
 
 .fx-label {
-  font-size: 12px;
-  font-weight: 600;
+  font-size: 11px;
+  font-weight: 700;
   color: var(--accent-color);
   flex-shrink: 0;
+  opacity: 0.85;
 }
 
 .formula-input {

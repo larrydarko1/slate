@@ -60,35 +60,39 @@
             >
               {{ ri + 1 }}
             </td>
-            <td
-              v-for="(_cell, ci) in row"
-              :key="ci"
-              class="cell"
-              :class="cellClasses(ci, ri)"
-              :style="{ width: table.columns[ci]?.width + 'px' }"
-              @mousedown.stop="onCellMouseDown(ci, ri)"
-              @dblclick.stop="onCellDblClick(ci, ri)"
-              @contextmenu.prevent="onCellContextMenu(ci, ri, $event)"
-            >
-              <template v-if="isCellEditing(ci, ri)">
-                <input
-                  class="cell-edit-input"
-                  ref="cellInputRef"
-                  :value="ss.editValue.value"
-                  @input="onCellInput"
-                  @keydown.enter.prevent="onCellEnter"
-                  @keydown.tab.prevent="onCellTab($event)"
-                  @keydown.escape.prevent="ss.cancelEdit()"
-                  @blur="onCellEditBlur"
-                  @mousedown.stop
-                />
-              </template>
-              <template v-else>
-                <span class="cell-text" :class="cellTextClass(ci, ri)">
-                  {{ ss.getDisplayValue(table.id, ci, ri) }}
-                </span>
-              </template>
-            </td>
+            <template v-for="(_cell, ci) in row" :key="ci">
+              <td
+                v-if="!ss.isCellHiddenByMerge(table.id, ci, ri)"
+                class="cell"
+                :class="cellClasses(ci, ri)"
+                :style="mergedCellStyle(ci, ri)"
+                :colspan="mergedColspan(ci, ri)"
+                :rowspan="mergedRowspan(ci, ri)"
+                @mousedown.stop="onCellMouseDown(ci, ri, $event)"
+                @mouseover="onCellMouseOver(ci, ri)"
+                @dblclick.stop="onCellDblClick(ci, ri)"
+                @contextmenu.prevent="onCellContextMenu(ci, ri, $event)"
+              >
+                <template v-if="isCellEditing(ci, ri)">
+                  <input
+                    class="cell-edit-input"
+                    ref="cellInputRef"
+                    :value="ss.editValue.value"
+                    @input="onCellInput"
+                    @keydown.enter.prevent="onCellEnter"
+                    @keydown.tab.prevent="onCellTab($event)"
+                    @keydown.escape.prevent="ss.cancelEdit()"
+                    @blur="onCellEditBlur"
+                    @mousedown.stop
+                  />
+                </template>
+                <template v-else>
+                  <span class="cell-text" :class="cellTextClass(ci, ri)">
+                    {{ ss.getDisplayValue(table.id, ci, ri) }}
+                  </span>
+                </template>
+              </td>
+            </template>
           </tr>
           <!-- Add row -->
           <tr>
@@ -179,7 +183,9 @@ function columnLetter(ci: number) {
 function cellClasses(ci: number, ri: number) {
   return {
     selected: isSelected(ci, ri),
+    'in-selection': ss.isInSelection(props.table.id, ci, ri) && !isSelected(ci, ri),
     'header-row': ri < props.table.headerRows,
+    'merged-cell': !!ss.isMergedOrigin(props.table.id, ci, ri),
   }
 }
 
@@ -203,11 +209,58 @@ function isCellEditing(ci: number, ri: number) {
   return isSelected(ci, ri) && ss.isEditing.value
 }
 
+// ── Merged cell helpers ──
+
+function mergedColspan(ci: number, ri: number): number | undefined {
+  const m = ss.isMergedOrigin(props.table.id, ci, ri)
+  if (!m) return undefined
+  return m.endCol - m.startCol + 1
+}
+
+function mergedRowspan(ci: number, ri: number): number | undefined {
+  const m = ss.isMergedOrigin(props.table.id, ci, ri)
+  if (!m) return undefined
+  return m.endRow - m.startRow + 1
+}
+
+function mergedCellStyle(ci: number, ri: number) {
+  const m = ss.isMergedOrigin(props.table.id, ci, ri)
+  if (m) {
+    // Sum widths of all merged columns
+    let totalWidth = 0
+    for (let c = m.startCol; c <= m.endCol; c++) {
+      totalWidth += props.table.columns[c]?.width ?? 120
+    }
+    return { width: totalWidth + 'px', minWidth: totalWidth + 'px' }
+  }
+  return { width: props.table.columns[ci]?.width + 'px' }
+}
+
 // ── Cell interaction ──
 
-function onCellMouseDown(ci: number, ri: number) {
-  ss.selectCell(props.table.id, ci, ri)
+let isDragging = false
+
+function onCellMouseDown(ci: number, ri: number, e: MouseEvent) {
+  if (e.shiftKey) {
+    // Extend selection
+    ss.extendSelection(props.table.id, ci, ri)
+  } else {
+    ss.selectCell(props.table.id, ci, ri)
+    isDragging = true
+    document.addEventListener('mouseup', onSelectionMouseUp)
+  }
   nextTick(() => tableEl.value?.focus())
+}
+
+function onCellMouseOver(ci: number, ri: number) {
+  if (isDragging) {
+    ss.extendSelection(props.table.id, ci, ri)
+  }
+}
+
+function onSelectionMouseUp() {
+  isDragging = false
+  document.removeEventListener('mouseup', onSelectionMouseUp)
 }
 
 function onCellDblClick(ci: number, ri: number) {
@@ -365,9 +418,29 @@ function onRowContextMenu(ri: number, e: MouseEvent) {
 
 function onCellContextMenu(ci: number, ri: number, e: MouseEvent) {
   ss.selectCell(props.table.id, ci, ri)
+  const mergeAtCell = ss.getMergedRegionAt(props.table.id, ci, ri)
+  const hasSelection = ss.hasMultiCellSelection()
+
   const items: MenuItem[] = [
     { label: 'Clear Cell', action: () => ss.clearActiveCell() },
     { label: '', separator: true },
+  ]
+
+  // Merge options
+  if (hasSelection && !ss.selectionHasMerge()) {
+    items.push({ label: 'Merge Cells', action: () => ss.mergeSelection() })
+  }
+  if (mergeAtCell || ss.selectionHasMerge()) {
+    items.push({ label: 'Unmerge Cells', action: () => {
+      if (mergeAtCell) ss.unmergeCells(props.table.id, ci, ri)
+      else ss.unmergeSelection()
+    }})
+  }
+  if (hasSelection || mergeAtCell) {
+    items.push({ label: '', separator: true })
+  }
+
+  items.push(
     { label: 'Insert Row Above', action: () => ss.insertRowAt(props.table.id, ri) },
     { label: 'Insert Row Below', action: () => ss.insertRowAt(props.table.id, ri + 1) },
     { label: 'Insert Column Before', action: () => ss.insertColumnAt(props.table.id, ci) },
@@ -375,7 +448,7 @@ function onCellContextMenu(ci: number, ri: number, e: MouseEvent) {
     { label: '', separator: true },
     { label: 'Delete Row', danger: true, action: () => ss.deleteRow(props.table.id, ri) },
     { label: 'Delete Column', danger: true, action: () => ss.deleteColumn(props.table.id, ci) },
-  ]
+  )
   ctxMenu.value?.open(e.clientX, e.clientY, items)
 }
 
@@ -393,16 +466,16 @@ watch(
 <style scoped lang="scss">
 .spreadsheet-table {
   position: absolute;
-  border-radius: 8px;
+  border-radius: 10px;
   overflow: hidden;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
-  border: 1.5px solid var(--border-color);
+  box-shadow: var(--shadow-md);
+  border: 1px solid var(--border-color);
   background: var(--bg-primary);
   outline: none;
-  transition: box-shadow 0.15s;
+  transition: box-shadow 0.15s, border-color 0.15s;
 
   &.active {
-    box-shadow: 0 2px 16px rgba(0, 0, 0, 0.12);
+    box-shadow: var(--shadow-lg);
     border-color: var(--accent-color);
   }
 }
@@ -561,7 +634,16 @@ watch(
     z-index: 1;
   }
 
-  &:hover:not(.selected) {
+  &.in-selection {
+    background: var(--accent-color-alpha, rgba(66, 133, 244, 0.12));
+    z-index: 1;
+  }
+
+  &.merged-cell {
+    vertical-align: top;
+  }
+
+  &:hover:not(.selected):not(.in-selection) {
     background: var(--accent-color-alpha);
   }
 }

@@ -58,21 +58,22 @@ defineExpose({ open, close })
 
 .context-menu {
   position: absolute;
-  min-width: 160px;
+  min-width: 180px;
   background: var(--bg-primary);
   border: 1px solid var(--border-color);
-  border-radius: 8px;
-  padding: 4px 0;
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+  border-radius: 10px;
+  padding: 4px;
+  box-shadow: var(--shadow-lg), 0 0 0 1px rgba(0, 0, 0, 0.04);
   z-index: 10001;
 }
 
 .context-menu-item {
-  padding: 6px 14px;
+  padding: 6px 12px;
   font-size: 12px;
   color: var(--text-primary);
   cursor: pointer;
   user-select: none;
+  border-radius: 6px;
 
   &:hover:not(.separator) {
     background: var(--bg-hover);
@@ -80,10 +81,11 @@ defineExpose({ open, close })
 
   &.separator {
     height: 1px;
-    margin: 4px 8px;
+    margin: 3px 6px;
     padding: 0;
     background: var(--border-color);
     cursor: default;
+    border-radius: 0;
   }
 
   &.danger {
