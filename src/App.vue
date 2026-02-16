@@ -58,6 +58,19 @@ const handleKeydown = (e: KeyboardEvent) => {
       e.preventDefault()
       handleNewFile()
       break
+    case '=':
+    case '+':
+      e.preventDefault()
+      ss.zoomIn()
+      break
+    case '-':
+      e.preventDefault()
+      ss.zoomOut()
+      break
+    case '0':
+      e.preventDefault()
+      ss.resetZoom()
+      break
   }
 }
 

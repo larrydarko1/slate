@@ -58,6 +58,36 @@
       </svg>
     </button>
 
+    <!-- Zoom controls -->
+    <div class="canvas-tabs-spacer"></div>
+    <div class="zoom-controls">
+      <button
+        class="zoom-btn"
+        title="Zoom out (⌘−)"
+        :disabled="ss.canvasZoom.value <= 0.25"
+        @click="ss.zoomOut()"
+      >
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+          <path d="M2.5 6h7" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+        </svg>
+      </button>
+      <button
+        class="zoom-label"
+        title="Reset zoom (⌘0)"
+        @click="ss.resetZoom()"
+      >{{ zoomLabel }}</button>
+      <button
+        class="zoom-btn"
+        title="Zoom in (⌘+)"
+        :disabled="ss.canvasZoom.value >= 4"
+        @click="ss.zoomIn()"
+      >
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+          <path d="M6 2.5v7M2.5 6h7" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+        </svg>
+      </button>
+    </div>
+
     <!-- Context menu -->
     <Teleport to="body">
       <div
@@ -80,12 +110,14 @@
 </template>
 
 <script setup lang="ts">
-import { inject, nextTick, ref } from 'vue'
+import { inject, nextTick, ref, computed } from 'vue'
 import { SPREADSHEET_KEY } from '../composables/useSpreadsheet'
 import { MAX_CANVASES, createDefaultCanvas } from '../types/spreadsheet'
 
 const ss = inject(SPREADSHEET_KEY)!
 const maxCanvases = MAX_CANVASES
+
+const zoomLabel = computed(() => `${Math.round(ss.canvasZoom.value * 100)}%`)
 
 // ── Drag & drop reorder ──
 const dragIndex = ref<number | null>(null)
@@ -360,6 +392,63 @@ function ctxDelete() {
   &:disabled {
     opacity: 0.35;
     cursor: not-allowed;
+  }
+}
+
+.canvas-tabs-spacer {
+  flex: 1;
+}
+
+.zoom-controls {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+  margin-right: 2px;
+}
+
+.zoom-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 5px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 0;
+  transition: background 0.15s, color 0.15s;
+
+  &:hover:not(:disabled) {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+  }
+
+  &:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+  }
+}
+
+.zoom-label {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-muted);
+  min-width: 40px;
+  text-align: center;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 4px;
+  font-family: inherit;
+  transition: background 0.15s, color 0.15s;
+
+  &:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
   }
 }
 

@@ -1,6 +1,6 @@
 import { ref, computed, type InjectionKey } from 'vue'
 import type { SpreadsheetTable, Cell, CellValue, CellReference, MergedRegion, SelectionRange, Canvas } from '../types/spreadsheet'
-import { generateId, createDefaultTable, createEmptyCell, createDefaultCanvas, MAX_CANVASES } from '../types/spreadsheet'
+import { generateId, createDefaultTable, createEmptyCell, createDefaultCanvas, MAX_CANVASES, MIN_ZOOM, MAX_ZOOM, ZOOM_STEP } from '../types/spreadsheet'
 import { evaluateFormulaTyped } from '../engine/formula'
 import type { CellDataType } from '../engine/cellTypes'
 import { detectType, formatCellDisplay, getTypeAlignment } from '../engine/cellTypes'
@@ -17,6 +17,10 @@ export function useSpreadsheet() {
     const canvasOffset = computed({
         get: () => activeCanvas.value.canvasOffset,
         set: (v) => { activeCanvas.value.canvasOffset = v },
+    })
+    const canvasZoom = computed({
+        get: () => activeCanvas.value.canvasZoom,
+        set: (v) => { activeCanvas.value.canvasZoom = v },
     })
 
     const activeCell = ref<CellReference | null>(null)
@@ -65,6 +69,39 @@ export function useSpreadsheet() {
         maxZ = Math.max(0, ...activeCanvas.value.tables.map(t => t.zIndex))
     }
 
+    // ── Zoom ──
+
+    function setZoom(zoom: number, centerX?: number, centerY?: number) {
+        const clamped = Math.round(Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, zoom)) * 100) / 100
+        const oldZoom = canvasZoom.value
+        if (clamped === oldZoom) return
+
+        // Zoom towards the given center point (default: center of viewport)
+        if (centerX !== undefined && centerY !== undefined) {
+            // The point under the cursor in canvas-space should stay under the cursor
+            const worldX = (centerX - canvasOffset.value.x) / oldZoom
+            const worldY = (centerY - canvasOffset.value.y) / oldZoom
+            canvasOffset.value = {
+                x: centerX - worldX * clamped,
+                y: centerY - worldY * clamped,
+            }
+        }
+
+        canvasZoom.value = clamped
+    }
+
+    function zoomIn(centerX?: number, centerY?: number) {
+        setZoom(canvasZoom.value + ZOOM_STEP, centerX, centerY)
+    }
+
+    function zoomOut(centerX?: number, centerY?: number) {
+        setZoom(canvasZoom.value - ZOOM_STEP, centerX, centerY)
+    }
+
+    function resetZoom() {
+        setZoom(1.0)
+    }
+
     function reorderCanvas(fromIndex: number, toIndex: number) {
         if (fromIndex === toIndex) return
         if (fromIndex < 0 || toIndex < 0) return
@@ -78,8 +115,9 @@ export function useSpreadsheet() {
     function addTable() {
         tableCount++
         const offsetIdx = activeCanvas.value.tables.length
-        const x = -canvasOffset.value.x + 80 + offsetIdx * 40
-        const y = -canvasOffset.value.y + 60 + offsetIdx * 40
+        const zoom = canvasZoom.value
+        const x = (-canvasOffset.value.x + 80 + offsetIdx * 40) / zoom
+        const y = (-canvasOffset.value.y + 60 + offsetIdx * 40) / zoom
         const t = createDefaultTable(x, y, `Table ${tableCount}`)
         t.zIndex = ++maxZ
         activeCanvas.value.tables.push(t)
@@ -633,6 +671,7 @@ export function useSpreadsheet() {
                     id: cv.id,
                     name: cv.name,
                     canvasOffset: cv.canvasOffset ?? { x: 0, y: 0 },
+                    canvasZoom: cv.canvasZoom ?? 1.0,
                     tables: (cv.tables ?? []).map(migrateTable),
                 }))
                 canvasCount = canvases.value.length
@@ -741,6 +780,7 @@ export function useSpreadsheet() {
         isEditing,
         editValue,
         canvasOffset,
+        canvasZoom,
         currentFilePath,
 
         // Canvases
@@ -749,6 +789,12 @@ export function useSpreadsheet() {
         renameCanvas,
         switchCanvas,
         reorderCanvas,
+
+        // Zoom
+        setZoom,
+        zoomIn,
+        zoomOut,
+        resetZoom,
 
         // Tables
         addTable,

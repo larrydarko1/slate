@@ -3,7 +3,7 @@
     class="canvas-workspace"
     ref="canvasRef"
     @mousedown="onCanvasMouseDown"
-    @wheel.passive="onWheel"
+    @wheel="onWheel"
   >
     <!-- Grid dot pattern background -->
     <div class="canvas-bg" :style="bgStyle"></div>
@@ -35,12 +35,18 @@ const ss = inject(SPREADSHEET_KEY)!
 const canvasRef = ref<HTMLElement | null>(null)
 
 const contentStyle = computed(() => ({
-  transform: `translate(${ss.canvasOffset.value.x}px, ${ss.canvasOffset.value.y}px)`,
+  transform: `translate(${ss.canvasOffset.value.x}px, ${ss.canvasOffset.value.y}px) scale(${ss.canvasZoom.value})`,
+  transformOrigin: '0 0',
 }))
 
-const bgStyle = computed(() => ({
-  backgroundPosition: `${ss.canvasOffset.value.x}px ${ss.canvasOffset.value.y}px`,
-}))
+const bgStyle = computed(() => {
+  const zoom = ss.canvasZoom.value
+  const size = 24 * zoom
+  return {
+    backgroundPosition: `${ss.canvasOffset.value.x}px ${ss.canvasOffset.value.y}px`,
+    backgroundSize: `${size}px ${size}px`,
+  }
+})
 
 // ── Canvas panning ──
 
@@ -79,12 +85,26 @@ function onPanEnd() {
   document.removeEventListener('mouseup', onPanEnd)
 }
 
-// ── Wheel to pan ──
+// ── Wheel to pan / zoom ──
 
 function onWheel(e: WheelEvent) {
-  ss.canvasOffset.value = {
-    x: ss.canvasOffset.value.x - e.deltaX,
-    y: ss.canvasOffset.value.y - e.deltaY,
+  const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0
+  const modifier = isMac ? e.metaKey : e.ctrlKey
+
+  if (modifier || e.ctrlKey) {
+    // Zoom – pinch gesture or Cmd/Ctrl + scroll
+    e.preventDefault()
+    const rect = canvasRef.value!.getBoundingClientRect()
+    const cursorX = e.clientX - rect.left
+    const cursorY = e.clientY - rect.top
+    const delta = -e.deltaY * 0.005
+    ss.setZoom(ss.canvasZoom.value + delta, cursorX, cursorY)
+  } else {
+    // Pan
+    ss.canvasOffset.value = {
+      x: ss.canvasOffset.value.x - e.deltaX,
+      y: ss.canvasOffset.value.y - e.deltaY,
+    }
   }
 }
 </script>

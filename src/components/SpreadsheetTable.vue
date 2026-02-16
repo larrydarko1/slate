@@ -382,8 +382,9 @@ function startDrag(e: MouseEvent) {
 
 function onDragMove(e: MouseEvent) {
   if (!dragState) return
-  const dx = e.clientX - dragState.startX
-  const dy = e.clientY - dragState.startY
+  const zoom = ss.canvasZoom.value
+  const dx = (e.clientX - dragState.startX) / zoom
+  const dy = (e.clientY - dragState.startY) / zoom
   ss.moveTable(props.table.id, dragState.origX + dx, dragState.origY + dy)
 }
 
@@ -405,7 +406,8 @@ function startColResize(ci: number, e: MouseEvent) {
 
 function onResizeMove(e: MouseEvent) {
   if (!resizeState) return
-  const dx = e.clientX - resizeState.startX
+  const zoom = ss.canvasZoom.value
+  const dx = (e.clientX - resizeState.startX) / zoom
   const newW = Math.max(50, resizeState.origWidth + dx)
   props.table.columns[resizeState.colIdx].width = newW
 }
