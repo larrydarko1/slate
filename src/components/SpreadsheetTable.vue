@@ -242,6 +242,7 @@ function cellTextStyle(ci: number, ri: number) {
   return {
     textAlign: align,
     color: cell?.format?.textColor ?? undefined,
+    fontFamily: cell?.format?.fontFamily && cell.format.fontFamily !== 'System Default' ? cell.format.fontFamily : undefined,
   }
 }
 

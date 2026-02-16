@@ -150,8 +150,29 @@
     <template v-if="hasActiveCell || hasActiveTextBox">
       <div class="toolbar-sep" aria-hidden="true"></div>
 
+      <!-- Font family picker -->
+      <div class="toolbar-group">
+        <div class="font-selector-wrapper" ref="fontSelectorRef">
+          <button class="tb has-label font-selector-btn" @click="toggleFontMenu" title="Font family">
+            <span class="font-selector-label" :style="{ fontFamily: fmtFontFamily !== 'System Default' ? fmtFontFamily : undefined }">{{ fmtFontFamily }}</span>
+            <svg class="chevron" width="8" height="8" viewBox="0 0 8 8"><path d="M2 3l2 2 2-2" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
+          </button>
+          <div v-if="fontMenuOpen" class="font-dropdown">
+            <button
+              v-for="font in fontOptions"
+              :key="font"
+              class="font-option"
+              :class="{ active: font === fmtFontFamily }"
+              :style="{ fontFamily: font !== 'System Default' ? font : undefined }"
+              @click="fmtSetFont(font)"
+            >{{ font }}</button>
+          </div>
+        </div>
+      </div>
+
       <!-- Font size (text box only) -->
       <template v-if="hasActiveTextBox">
+        <div class="toolbar-sep" aria-hidden="true"></div>
         <div class="toolbar-group">
           <button class="tb" title="Decrease font size" @click="tbDecreaseFontSize">
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M3 7h8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
@@ -161,10 +182,9 @@
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 3v8M3 7h8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
           </button>
         </div>
-        <div class="toolbar-sep" aria-hidden="true"></div>
       </template>
 
-      <!-- Bold / Italic -->
+      <div class="toolbar-sep" aria-hidden="true"></div>
       <div class="toolbar-group">
         <button class="tb" :class="{ 'tb-active': fmtIsBold }" title="Bold" @click="fmtToggleBold">
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M4 2.5h4a2.5 2.5 0 0 1 0 5H4V2.5ZM4 7.5h4.5a2.5 2.5 0 0 1 0 5H4V7.5Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>
@@ -462,6 +482,49 @@ function fmtSetAlign(a: 'left' | 'center' | 'right') {
   }
 }
 
+// ── Font family picker ──
+
+const fontSelectorRef = ref<HTMLElement | null>(null)
+const fontMenuOpen = ref(false)
+
+const fontOptions = [
+  'System Default',
+  'Arial',
+  'Helvetica Neue',
+  'Georgia',
+  'Times New Roman',
+  'Courier New',
+  'Menlo',
+  'SF Mono',
+  'Verdana',
+  'Trebuchet MS',
+  'Palatino',
+  'Garamond',
+  'Futura',
+  'Avenir',
+  'Gill Sans',
+  'Optima',
+]
+
+const fmtFontFamily = computed(() => {
+  if (hasActiveTextBox.value) return activeTextBoxData.value?.fontFamily ?? 'System Default'
+  const fmt = ss.getActiveCellFormat()
+  return fmt?.fontFamily ?? 'System Default'
+})
+
+function toggleFontMenu() {
+  fontMenuOpen.value = !fontMenuOpen.value
+}
+
+function fmtSetFont(font: string) {
+  if (hasActiveTextBox.value) {
+    tbUpdateProp('fontFamily', font)
+  } else if (hasActiveCell.value) {
+    ss.setSelectionFormat({ fontFamily: font === 'System Default' ? undefined : font })
+  }
+  fontMenuOpen.value = false
+}
+
 // ── Type selector ──
 
 const typeSelectorRef = ref<HTMLElement | null>(null)
@@ -500,6 +563,9 @@ function setType(t: CellDataType) {
 function onClickOutside(e: MouseEvent) {
   if (typeMenuOpen.value && typeSelectorRef.value && !typeSelectorRef.value.contains(e.target as Node)) {
     typeMenuOpen.value = false
+  }
+  if (fontMenuOpen.value && fontSelectorRef.value && !fontSelectorRef.value.contains(e.target as Node)) {
+    fontMenuOpen.value = false
   }
   if (colorMenuType.value && textColorRef.value && fillColorRef.value
     && !textColorRef.value.contains(e.target as Node)
@@ -936,6 +1002,70 @@ function applyTheme() {
 .tb-active {
   background: var(--accent-color-alpha, rgba(66, 133, 244, 0.12)) !important;
   color: var(--accent-color) !important;
+}
+
+/* ── Font selector dropdown ── */
+
+.font-selector-wrapper {
+  position: relative;
+}
+
+.font-selector-btn {
+  gap: 4px !important;
+  max-width: 140px;
+
+  .chevron {
+    opacity: 0.5;
+    margin-left: 1px;
+    flex-shrink: 0;
+  }
+}
+
+.font-selector-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 110px;
+}
+
+.font-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 4px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  box-shadow: var(--shadow-lg);
+  padding: 4px;
+  z-index: 200;
+  min-width: 180px;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.font-option {
+  display: block;
+  width: 100%;
+  padding: 5px 10px;
+  border: none;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.1s;
+  white-space: nowrap;
+
+  &:hover {
+    background: var(--bg-hover);
+  }
+
+  &.active {
+    background: var(--accent-color-alpha, rgba(66, 133, 244, 0.12));
+    font-weight: 600;
+  }
 }
 
 .tb-font-size {

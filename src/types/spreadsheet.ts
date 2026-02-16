@@ -17,6 +17,7 @@ export interface CellFormat {
     align?: 'left' | 'center' | 'right'
     textColor?: string
     bgColor?: string
+    fontFamily?: string
 }
 
 export interface MergedRegion {
@@ -66,6 +67,7 @@ export interface TextBox {
     zIndex: number
     text: string
     fontSize: number
+    fontFamily: string
     fontWeight: 'normal' | 'bold'
     fontStyle: 'normal' | 'italic'
     textColor: string
@@ -151,6 +153,7 @@ export function createDefaultTextBox(x: number, y: number): TextBox {
         zIndex: 0,
         text: '',
         fontSize: 14,
+        fontFamily: 'System Default',
         fontWeight: 'normal',
         fontStyle: 'normal',
         textColor: '',

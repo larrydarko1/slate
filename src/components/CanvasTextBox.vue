@@ -86,6 +86,7 @@ const boxStyle = computed(() => ({
 
 const textStyle = computed(() => ({
   fontSize: props.textBox.fontSize + 'px',
+  fontFamily: props.textBox.fontFamily && props.textBox.fontFamily !== 'System Default' ? props.textBox.fontFamily : undefined,
   fontWeight: props.textBox.fontWeight,
   fontStyle: props.textBox.fontStyle,
   color: props.textBox.textColor || 'var(--text-primary)',
