@@ -1,34 +1,93 @@
-import { ref, type InjectionKey } from 'vue'
-import type { SpreadsheetTable, Cell, CellValue, CellReference, MergedRegion, SelectionRange } from '../types/spreadsheet'
-import { generateId, createDefaultTable, createEmptyCell } from '../types/spreadsheet'
+import { ref, computed, type InjectionKey } from 'vue'
+import type { SpreadsheetTable, Cell, CellValue, CellReference, MergedRegion, SelectionRange, Canvas } from '../types/spreadsheet'
+import { generateId, createDefaultTable, createEmptyCell, createDefaultCanvas, MAX_CANVASES } from '../types/spreadsheet'
 import { evaluateFormulaTyped } from '../engine/formula'
 import type { CellDataType } from '../engine/cellTypes'
 import { detectType, formatCellDisplay, getTypeAlignment } from '../engine/cellTypes'
 
 export function useSpreadsheet() {
-    const tables = ref<SpreadsheetTable[]>([])
+    const canvases = ref<Canvas[]>([createDefaultCanvas('Canvas 1')])
+    const activeCanvasId = ref<string>(canvases.value[0].id)
+
+    // Computed references that point into the active canvas
+    const activeCanvas = computed(() =>
+        canvases.value.find(c => c.id === activeCanvasId.value) ?? canvases.value[0]
+    )
+    const tables = computed(() => activeCanvas.value.tables)
+    const canvasOffset = computed({
+        get: () => activeCanvas.value.canvasOffset,
+        set: (v) => { activeCanvas.value.canvasOffset = v },
+    })
+
     const activeCell = ref<CellReference | null>(null)
     const selectionRange = ref<SelectionRange | null>(null)
     const isEditing = ref(false)
     const editValue = ref('')
-    const canvasOffset = ref({ x: 0, y: 0 })
     let maxZ = 0
     let tableCount = 0
+    let canvasCount = 1
+
+    // ── Canvas CRUD ──
+
+    function addCanvas() {
+        if (canvases.value.length >= MAX_CANVASES) return
+        canvasCount++
+        const c = createDefaultCanvas(`Canvas ${canvasCount}`)
+        canvases.value.push(c)
+        switchCanvas(c.id)
+    }
+
+    function removeCanvas(canvasId: string) {
+        if (canvases.value.length <= 1) return // always keep at least one
+        const idx = canvases.value.findIndex(c => c.id === canvasId)
+        if (idx < 0) return
+        canvases.value.splice(idx, 1)
+        if (activeCanvasId.value === canvasId) {
+            activeCanvasId.value = canvases.value[Math.min(idx, canvases.value.length - 1)].id
+        }
+        activeCell.value = null
+        selectionRange.value = null
+        isEditing.value = false
+    }
+
+    function renameCanvas(canvasId: string, name: string) {
+        const c = canvases.value.find(cv => cv.id === canvasId)
+        if (c) c.name = name
+    }
+
+    function switchCanvas(canvasId: string) {
+        if (isEditing.value) commitEdit()
+        activeCell.value = null
+        selectionRange.value = null
+        isEditing.value = false
+        activeCanvasId.value = canvasId
+        // Recalculate maxZ for the new canvas
+        maxZ = Math.max(0, ...activeCanvas.value.tables.map(t => t.zIndex))
+    }
+
+    function reorderCanvas(fromIndex: number, toIndex: number) {
+        if (fromIndex === toIndex) return
+        if (fromIndex < 0 || toIndex < 0) return
+        if (fromIndex >= canvases.value.length || toIndex >= canvases.value.length) return
+        const [moved] = canvases.value.splice(fromIndex, 1)
+        canvases.value.splice(toIndex, 0, moved)
+    }
 
     // ── Table CRUD ──
 
     function addTable() {
         tableCount++
-        const offsetIdx = tables.value.length
+        const offsetIdx = activeCanvas.value.tables.length
         const x = -canvasOffset.value.x + 80 + offsetIdx * 40
         const y = -canvasOffset.value.y + 60 + offsetIdx * 40
         const t = createDefaultTable(x, y, `Table ${tableCount}`)
         t.zIndex = ++maxZ
-        tables.value.push(t)
+        activeCanvas.value.tables.push(t)
     }
 
     function removeTable(tableId: string) {
-        tables.value = tables.value.filter(t => t.id !== tableId)
+        const canvas = activeCanvas.value
+        canvas.tables = canvas.tables.filter(t => t.id !== tableId)
         if (activeCell.value?.tableId === tableId) activeCell.value = null
     }
 
@@ -508,7 +567,7 @@ export function useSpreadsheet() {
             return cell.value
         }
 
-        for (const table of tables.value) {
+        for (const table of activeCanvas.value.tables) {
             for (let r = 0; r < table.rows.length; r++)
                 for (let c = 0; c < table.columns.length; c++)
                     if (table.rows[r][c].formula != null)
@@ -519,7 +578,7 @@ export function useSpreadsheet() {
     // ── Helpers ──
 
     function findTable(id: string): SpreadsheetTable | undefined {
-        return tables.value.find(t => t.id === id)
+        return activeCanvas.value.tables.find(t => t.id === id)
     }
 
     // ── File Operations ──
@@ -528,47 +587,71 @@ export function useSpreadsheet() {
 
     function serializeState() {
         return JSON.stringify({
-            version: '1.0',
-            tables: tables.value,
-            canvasOffset: canvasOffset.value
+            version: '2.0',
+            canvases: canvases.value,
+            activeCanvasId: activeCanvasId.value,
         }, null, 2)
+    }
+
+    function migrateTableRows(rows: any[][]): Cell[][] {
+        return (rows ?? []).map((row: any[]) =>
+            row.map((cell: any) => {
+                if (!cell.cellType) {
+                    if (cell.value === null || cell.value === undefined) {
+                        cell.cellType = 'empty'
+                    } else if (typeof cell.value === 'boolean') {
+                        cell.cellType = 'boolean'
+                    } else if (typeof cell.value === 'number') {
+                        cell.cellType = Number.isInteger(cell.value) ? 'integer' : 'float'
+                    } else if (typeof cell.value === 'string') {
+                        const detected = detectType(cell.value)
+                        cell.cellType = detected.type
+                    } else {
+                        cell.cellType = 'text'
+                    }
+                }
+                return cell
+            })
+        )
+    }
+
+    function migrateTable(t: any): SpreadsheetTable {
+        return {
+            ...t,
+            mergedRegions: t.mergedRegions ?? [],
+            rows: migrateTableRows(t.rows),
+        }
     }
 
     function deserializeState(jsonContent: string) {
         try {
             const data = JSON.parse(jsonContent)
-            if (data.tables) {
-                tables.value = data.tables.map((t: any) => ({
-                    ...t,
-                    mergedRegions: t.mergedRegions ?? [],
-                    rows: (t.rows ?? []).map((row: any[]) =>
-                        row.map((cell: any) => {
-                            // Ensure cellType exists (migration from older files)
-                            if (!cell.cellType) {
-                                if (cell.value === null || cell.value === undefined) {
-                                    cell.cellType = 'empty'
-                                } else if (typeof cell.value === 'boolean') {
-                                    cell.cellType = 'boolean'
-                                } else if (typeof cell.value === 'number') {
-                                    cell.cellType = Number.isInteger(cell.value) ? 'integer' : 'float'
-                                } else if (typeof cell.value === 'string') {
-                                    // Try to detect the type from string value
-                                    const detected = detectType(cell.value)
-                                    cell.cellType = detected.type
-                                } else {
-                                    cell.cellType = 'text'
-                                }
-                            }
-                            return cell
-                        })
-                    ),
+
+            if (data.version === '2.0' && data.canvases) {
+                // V2 format – multi-canvas
+                canvases.value = data.canvases.map((cv: any) => ({
+                    id: cv.id,
+                    name: cv.name,
+                    canvasOffset: cv.canvasOffset ?? { x: 0, y: 0 },
+                    tables: (cv.tables ?? []).map(migrateTable),
                 }))
-                maxZ = Math.max(0, ...tables.value.map(t => t.zIndex))
-                tableCount = tables.value.length
+                canvasCount = canvases.value.length
+                activeCanvasId.value = data.activeCanvasId ?? canvases.value[0].id
+                maxZ = Math.max(0, ...activeCanvas.value.tables.map(t => t.zIndex))
+                tableCount = canvases.value.reduce((sum, cv) => sum + cv.tables.length, 0)
+            } else if (data.tables) {
+                // V1 format – single canvas, migrate
+                const migrated = data.tables.map(migrateTable)
+                const canvas = createDefaultCanvas('Canvas 1')
+                canvas.tables = migrated
+                if (data.canvasOffset) canvas.canvasOffset = data.canvasOffset
+                canvases.value = [canvas]
+                canvasCount = 1
+                activeCanvasId.value = canvas.id
+                maxZ = Math.max(0, ...migrated.map((t: SpreadsheetTable) => t.zIndex))
+                tableCount = migrated.length
             }
-            if (data.canvasOffset) {
-                canvasOffset.value = data.canvasOffset
-            }
+
             activeCell.value = null
             isEditing.value = false
             recalculate()
@@ -636,17 +719,22 @@ export function useSpreadsheet() {
     }
 
     function newFile() {
-        tables.value = []
+        const canvas = createDefaultCanvas('Canvas 1')
+        canvases.value = [canvas]
+        activeCanvasId.value = canvas.id
         activeCell.value = null
         isEditing.value = false
-        canvasOffset.value = { x: 0, y: 0 }
         currentFilePath.value = null
         maxZ = 0
         tableCount = 0
+        canvasCount = 1
     }
 
     return {
         // State
+        canvases,
+        activeCanvasId,
+        activeCanvas,
         tables,
         activeCell,
         selectionRange,
@@ -654,6 +742,13 @@ export function useSpreadsheet() {
         editValue,
         canvasOffset,
         currentFilePath,
+
+        // Canvases
+        addCanvas,
+        removeCanvas,
+        renameCanvas,
+        switchCanvas,
+        reorderCanvas,
 
         // Tables
         addTable,

@@ -11,6 +11,7 @@
     />
     <FormulaBar />
     <CanvasWorkspace />
+    <CanvasTabs />
   </div>
 </template>
 
@@ -21,6 +22,7 @@ import TitleBar from './components/TitleBar.vue'
 import Toolbar from './components/Toolbar.vue'
 import FormulaBar from './components/FormulaBar.vue'
 import CanvasWorkspace from './components/CanvasWorkspace.vue'
+import CanvasTabs from './components/CanvasTabs.vue'
 
 const ss = useSpreadsheet()
 provide(SPREADSHEET_KEY, ss)

@@ -63,6 +63,25 @@ export interface Sheet {
     tables: SpreadsheetTable[]
 }
 
+export interface Canvas {
+    id: string
+    name: string
+    tables: SpreadsheetTable[]
+    canvasOffset: { x: number; y: number }
+}
+
+/** Maximum number of canvases allowed per file */
+export const MAX_CANVASES = 10
+
+export function createDefaultCanvas(name: string): Canvas {
+    return {
+        id: generateId('canvas'),
+        name,
+        tables: [],
+        canvasOffset: { x: 0, y: 0 },
+    }
+}
+
 // ── Helpers ──
 
 let _idCounter = 0
