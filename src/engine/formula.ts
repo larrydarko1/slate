@@ -7,6 +7,8 @@
  *  - Comparison: =  <>  <  >  <=  >=
  *  - Cell references: A1, AB23
  *  - Range references: A1:C5
+ *  - Cross-table references: 'Table 1'::A1, 'Table 1'::A1:B5
+ *  - Cross-canvas references: 'Canvas 1'::'Table 1'::A1
  *  - Functions: SUM, AVERAGE, MIN, MAX, COUNT, COUNTA, ROUND, ABS, SQRT,
  *               POWER, MOD, INT, IF, AND, OR, NOT, CONCAT, UPPER, LOWER,
  *               LEN, TRIM, LEFT, RIGHT, MID, PI, NOW, TODAY
@@ -30,6 +32,11 @@ export interface FormulaContext {
     getCellType: (col: number, row: number) => CellDataType
     getCellRange: (startCol: number, startRow: number, endCol: number, endRow: number) => CellValue[]
     getCellRangeTypes: (startCol: number, startRow: number, endCol: number, endRow: number) => CellDataType[]
+    // Cross-table / cross-canvas resolution (optional – only provided by the composable)
+    resolveExternalCellValue?: (canvasName: string | null, tableName: string, col: number, row: number) => CellValue
+    resolveExternalCellType?: (canvasName: string | null, tableName: string, col: number, row: number) => CellDataType
+    resolveExternalCellRange?: (canvasName: string | null, tableName: string, sc: number, sr: number, ec: number, er: number) => CellValue[]
+    resolveExternalCellRangeTypes?: (canvasName: string | null, tableName: string, sc: number, sr: number, ec: number, er: number) => CellDataType[]
 }
 
 /** Result of a type-aware formula evaluation */
@@ -42,10 +49,10 @@ export interface TypedResult {
 
 type TokenType =
     | 'NUMBER' | 'STRING' | 'BOOLEAN'
-    | 'CELL_REF' | 'IDENTIFIER'
+    | 'CELL_REF' | 'IDENTIFIER' | 'QUOTED_NAME'
     | 'PLUS' | 'MINUS' | 'STAR' | 'SLASH' | 'CARET' | 'AMP'
     | 'EQ' | 'NEQ' | 'LT' | 'GT' | 'LTE' | 'GTE'
-    | 'LPAREN' | 'RPAREN' | 'COMMA' | 'COLON'
+    | 'LPAREN' | 'RPAREN' | 'COMMA' | 'COLON' | 'DOUBLE_COLON'
     | 'EOF'
 
 interface Token {
@@ -62,6 +69,8 @@ export type ASTNode =
     | { type: 'boolean'; value: boolean }
     | { type: 'cell_ref'; col: number; row: number }
     | { type: 'range'; sc: number; sr: number; ec: number; er: number }
+    | { type: 'external_cell_ref'; canvasName: string | null; tableName: string; col: number; row: number }
+    | { type: 'external_range'; canvasName: string | null; tableName: string; sc: number; sr: number; ec: number; er: number }
     | { type: 'binary'; op: string; left: ASTNode; right: ASTNode }
     | { type: 'unary'; op: string; operand: ASTNode }
     | { type: 'function'; name: string; args: ASTNode[] }
@@ -91,6 +100,16 @@ function tokenize(src: string): Token[] {
             while (i < src.length && src[i] !== '"') s += src[i++]
             i++ // closing "
             tokens.push({ type: 'STRING', value: s })
+            continue
+        }
+
+        // single-quoted name (for table/canvas references like 'Table 1')
+        if (src[i] === "'") {
+            i++
+            let s = ''
+            while (i < src.length && src[i] !== "'") s += src[i++]
+            i++ // closing '
+            tokens.push({ type: 'QUOTED_NAME', value: s })
             continue
         }
 
@@ -129,7 +148,14 @@ function tokenize(src: string): Token[] {
             case '(': tokens.push({ type: 'LPAREN', value: c }); break
             case ')': tokens.push({ type: 'RPAREN', value: c }); break
             case ',': tokens.push({ type: 'COMMA', value: c }); break
-            case ':': tokens.push({ type: 'COLON', value: c }); break
+            case ':':
+                if (src[i + 1] === ':') {
+                    tokens.push({ type: 'DOUBLE_COLON', value: '::' })
+                    i++ // skip second colon
+                } else {
+                    tokens.push({ type: 'COLON', value: c })
+                }
+                break
             case '=': tokens.push({ type: 'EQ', value: c }); break
             case '<':
                 if (src[i + 1] === '>') { tokens.push({ type: 'NEQ', value: '<>' }); i++ }
@@ -238,6 +264,63 @@ class Parser {
         return this.primary()
     }
 
+    /**
+     * Parse an external (cross-table or cross-canvas) cell/range reference.
+     * Called after consuming the first name token when :: follows.
+     * Patterns:
+     *   name :: CELL_REF            → external_cell_ref (same canvas)
+     *   name :: CELL_REF : CELL_REF → external_range    (same canvas)
+     *   name :: name :: CELL_REF            → external_cell_ref (cross-canvas)
+     *   name :: name :: CELL_REF : CELL_REF → external_range    (cross-canvas)
+     */
+    private parseExternalRef(firstName: string): ASTNode {
+        this.expect('DOUBLE_COLON')
+        const next = this.peek()
+
+        // Determine if this is canvas::table::ref or table::ref
+        if (next.type === 'QUOTED_NAME' || next.type === 'IDENTIFIER' || next.type === 'CELL_REF') {
+            this.advance()
+            const secondName = next.value
+
+            if (this.peek().type === 'DOUBLE_COLON') {
+                // canvas :: table :: cellref
+                this.advance() // consume ::
+                const canvasName = firstName
+                const tableName = secondName
+                return this.parseCellOrRange(canvasName, tableName)
+            }
+
+            // table :: cellref
+            // secondName should be a CELL_REF
+            if (next.type === 'CELL_REF') {
+                const { col, row } = parseCellRef(secondName)
+                if (this.peek().type === 'COLON') {
+                    this.advance()
+                    const end = parseCellRef(this.expect('CELL_REF').value)
+                    return { type: 'external_range', canvasName: null, tableName: firstName, sc: col, sr: row, ec: end.col, er: end.row }
+                }
+                return { type: 'external_cell_ref', canvasName: null, tableName: firstName, col, row }
+            }
+
+            // secondName is an IDENTIFIER/QUOTED_NAME but no :: follows → error
+            throw new Error(`Expected :: or cell reference after '${secondName}'`)
+        }
+
+        throw new Error(`Expected table name or cell reference after ::`)
+    }
+
+    /** Parse a CELL_REF (or CELL_REF:CELL_REF range) in an external context */
+    private parseCellOrRange(canvasName: string | null, tableName: string): ASTNode {
+        const refTok = this.expect('CELL_REF')
+        const { col, row } = parseCellRef(refTok.value)
+        if (this.peek().type === 'COLON') {
+            this.advance()
+            const end = parseCellRef(this.expect('CELL_REF').value)
+            return { type: 'external_range', canvasName, tableName, sc: col, sr: row, ec: end.col, er: end.row }
+        }
+        return { type: 'external_cell_ref', canvasName, tableName, col, row }
+    }
+
     private primary(): ASTNode {
         const tok = this.peek()
 
@@ -256,6 +339,11 @@ class Parser {
 
             case 'CELL_REF': {
                 this.advance()
+                // Check if this CELL_REF-looking token is actually a table name
+                // followed by :: (e.g. Table1::A1)
+                if (this.peek().type === 'DOUBLE_COLON') {
+                    return this.parseExternalRef(tok.value)
+                }
                 const { col, row } = parseCellRef(tok.value)
                 if (this.peek().type === 'COLON') {
                     this.advance()
@@ -265,9 +353,22 @@ class Parser {
                 return { type: 'cell_ref', col, row }
             }
 
+            case 'QUOTED_NAME': {
+                this.advance()
+                // Must be followed by :: for a cross-table/cross-canvas reference
+                if (this.peek().type === 'DOUBLE_COLON') {
+                    return this.parseExternalRef(tok.value)
+                }
+                throw new Error(`Unexpected quoted name: '${tok.value}' (expected ::)`)
+            }
+
             case 'IDENTIFIER': {
                 this.advance()
                 const name = tok.value
+                // Check if this is a table name prefix (e.g. Sales::A1)
+                if (this.peek().type === 'DOUBLE_COLON') {
+                    return this.parseExternalRef(name)
+                }
                 this.expect('LPAREN')
                 const args: ASTNode[] = []
                 if (this.peek().type !== 'RPAREN') {
@@ -311,6 +412,9 @@ function flattenArgs(args: ASTNode[], ctx: FormulaContext): CellValue[] {
     for (const a of args) {
         if (a.type === 'range') {
             out.push(...ctx.getCellRange(a.sc, a.sr, a.ec, a.er))
+        } else if (a.type === 'external_range') {
+            if (!ctx.resolveExternalCellRange) throw new Error('Cross-table references not supported in this context')
+            out.push(...ctx.resolveExternalCellRange(a.canvasName, a.tableName, a.sc, a.sr, a.ec, a.er))
         } else {
             out.push(evaluateVal(a, ctx))
         }
@@ -324,6 +428,14 @@ function flattenTypedArgs(args: ASTNode[], ctx: FormulaContext): TypedCellValue[
         if (a.type === 'range') {
             const vals = ctx.getCellRange(a.sc, a.sr, a.ec, a.er)
             const types = ctx.getCellRangeTypes(a.sc, a.sr, a.ec, a.er)
+            for (let i = 0; i < vals.length; i++) {
+                out.push({ value: vals[i], type: types[i] ?? 'empty' })
+            }
+        } else if (a.type === 'external_range') {
+            if (!ctx.resolveExternalCellRange || !ctx.resolveExternalCellRangeTypes)
+                throw new Error('Cross-table references not supported in this context')
+            const vals = ctx.resolveExternalCellRange(a.canvasName, a.tableName, a.sc, a.sr, a.ec, a.er)
+            const types = ctx.resolveExternalCellRangeTypes(a.canvasName, a.tableName, a.sc, a.sr, a.ec, a.er)
             for (let i = 0; i < vals.length; i++) {
                 out.push({ value: vals[i], type: types[i] ?? 'empty' })
             }
@@ -507,8 +619,18 @@ function evaluate(node: ASTNode, ctx: FormulaContext): TypedCellValue {
             return { value: node.value, type: 'boolean' }
         case 'cell_ref':
             return { value: ctx.getCellValue(node.col, node.row), type: ctx.getCellType(node.col, node.row) }
+        case 'external_cell_ref': {
+            if (!ctx.resolveExternalCellValue || !ctx.resolveExternalCellType)
+                throw new Error('Cross-table references not supported in this context')
+            return {
+                value: ctx.resolveExternalCellValue(node.canvasName, node.tableName, node.col, node.row),
+                type: ctx.resolveExternalCellType(node.canvasName, node.tableName, node.col, node.row),
+            }
+        }
         case 'range':
             throw new Error('Range can only be used as a function argument')
+        case 'external_range':
+            throw new Error('External range can only be used as a function argument')
 
         case 'unary':
             if (node.op === '-') {

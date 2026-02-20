@@ -1,6 +1,6 @@
 import { ref, computed, type InjectionKey } from 'vue'
 import type { SpreadsheetTable, Cell, CellValue, CellReference, MergedRegion, SelectionRange, Canvas, TextBox, ChartObject } from '../types/spreadsheet'
-import { generateId, createDefaultTable, createEmptyCell, createDefaultCanvas, createDefaultTextBox, createDefaultChart, MAX_CANVASES, MIN_ZOOM, MAX_ZOOM, ZOOM_STEP } from '../types/spreadsheet'
+import { generateId, createDefaultTable, createEmptyCell, createDefaultCanvas, createDefaultTextBox, createDefaultChart, MAX_CANVASES, MIN_ZOOM, MAX_ZOOM, ZOOM_STEP, indexToColumnLetter } from '../types/spreadsheet'
 import { evaluateFormulaTyped } from '../engine/formula'
 import type { CellDataType } from '../engine/cellTypes'
 import { detectType, formatCellDisplay, getTypeAlignment } from '../engine/cellTypes'
@@ -31,6 +31,7 @@ export function useSpreadsheet() {
     const selectionRange = ref<SelectionRange | null>(null)
     const isEditing = ref(false)
     const editValue = ref('')
+    const formulaMode = ref(false)
     let maxZ = 0
     let tableCount = 0
     let canvasCount = 1
@@ -537,11 +538,13 @@ export function useSpreadsheet() {
         const { tableId, col, row } = activeCell.value
         setCellValue(tableId, col, row, editValue.value)
         isEditing.value = false
+        formulaMode.value = false
     }
 
     function cancelEdit() {
         isEditing.value = false
         editValue.value = ''
+        formulaMode.value = false
     }
 
     function clearActiveCell() {
@@ -557,6 +560,72 @@ export function useSpreadsheet() {
         } else {
             const { tableId, col, row } = activeCell.value
             setCellValue(tableId, col, row, '')
+        }
+    }
+
+    // ── Formula point-to-insert mode ──
+
+    /**
+     * Build a reference string for a cell, relative to the formula's source cell.
+     * - Same table: A1
+     * - Different table, same canvas: 'Table 2'::A1
+     * - Different canvas: 'Canvas 2'::'Table 1'::A1
+     */
+    function buildCellReferenceString(targetTableId: string, col: number, row: number): string {
+        if (!activeCell.value) return ''
+        const colLetter = indexToColumnLetter(col)
+        const rowNum = row + 1
+        const cellRef = `${colLetter}${rowNum}`
+
+        // Same table → plain ref
+        if (targetTableId === activeCell.value.tableId) {
+            return cellRef
+        }
+
+        // Find target table's name and canvas
+        const targetInfo = findTableGlobal(targetTableId)
+        if (!targetInfo) return cellRef
+
+        const sourceInfo = findTableGlobal(activeCell.value.tableId)
+        const targetTableName = targetInfo.table.name
+        const quoteTable = (n: string) => n.match(/^[A-Za-z_]\w*$/) ? n : `'${n}'`
+
+        // Same canvas → table-qualified ref
+        if (sourceInfo && sourceInfo.canvas.id === targetInfo.canvas.id) {
+            return `${quoteTable(targetTableName)}::${cellRef}`
+        }
+
+        // Different canvas → canvas + table qualified ref
+        const targetCanvasName = targetInfo.canvas.name
+        const quoteCanvas = (n: string) => n.match(/^[A-Za-z_]\w*$/) ? n : `'${n}'`
+        return `${quoteCanvas(targetCanvasName)}::${quoteTable(targetTableName)}::${cellRef}`
+    }
+
+    /**
+     * Insert a cell reference at the end of the current edit value.
+     * Called when clicking a cell while in formula mode.
+     */
+    function insertCellReference(tableId: string, col: number, row: number) {
+        if (!isEditing.value || !formulaMode.value) return
+
+        const ref = buildCellReferenceString(tableId, col, row)
+        if (!ref) return
+
+        // If editValue is empty, start a formula
+        if (editValue.value === '' || editValue.value === '=') {
+            editValue.value = '=' + ref
+        } else {
+            // Append the reference (e.g. after an operator)
+            editValue.value += ref
+        }
+    }
+
+    /** Toggle formula mode on/off */
+    function toggleFormulaMode() {
+        if (!activeCell.value) return
+        formulaMode.value = !formulaMode.value
+        if (formulaMode.value && !isEditing.value) {
+            startEditing('=')
         }
     }
 
@@ -817,51 +886,26 @@ export function useSpreadsheet() {
     function recalculate() {
         const evaluating = new Set<string>()
 
+        /** Get a cell from any table across all canvases */
+        function getCellGlobal(tableId: string, col: number, row: number): Cell | null {
+            const found = findTableGlobal(tableId)
+            if (!found) return null
+            const t = found.table
+            if (row < 0 || row >= t.rows.length || col < 0 || col >= t.columns.length) return null
+            return t.rows[row][col]
+        }
+
         function resolveCellValue(tableId: string, col: number, row: number): CellValue {
             const key = `${tableId}:${col}:${row}`
             if (evaluating.has(key)) return '#CIRCULAR!'
 
-            const cell = getCell(tableId, col, row)
+            const cell = getCellGlobal(tableId, col, row)
             if (!cell) return null
 
             if (cell.formula != null) {
                 evaluating.add(key)
                 try {
-                    const result = evaluateFormulaTyped(cell.formula, {
-                        getCellValue: (c, r) => resolveCellValue(tableId, c, r),
-                        getCellType: (c, r) => {
-                            const refCell = getCell(tableId, c, r)
-                            if (!refCell) return 'empty'
-                            if (refCell.formula != null) {
-                                // Ensure the referred cell is evaluated first
-                                resolveCellValue(tableId, c, r)
-                                return refCell.computedType ?? refCell.cellType ?? 'empty'
-                            }
-                            return refCell.cellType ?? 'empty'
-                        },
-                        getCellRange: (sc, sr, ec, er) => {
-                            const vals: CellValue[] = []
-                            for (let r = sr; r <= er; r++)
-                                for (let c = sc; c <= ec; c++)
-                                    vals.push(resolveCellValue(tableId, c, r))
-                            return vals
-                        },
-                        getCellRangeTypes: (sc, sr, ec, er) => {
-                            const types: CellDataType[] = []
-                            for (let r = sr; r <= er; r++)
-                                for (let c = sc; c <= ec; c++) {
-                                    const refCell = getCell(tableId, c, r)
-                                    if (!refCell) { types.push('empty'); continue }
-                                    if (refCell.formula != null) {
-                                        resolveCellValue(tableId, c, r)
-                                        types.push(refCell.computedType ?? refCell.cellType ?? 'empty')
-                                    } else {
-                                        types.push(refCell.cellType ?? 'empty')
-                                    }
-                                }
-                            return types
-                        },
-                    })
+                    const result = evaluateFormulaTyped(cell.formula, buildFormulaContext(tableId))
                     cell.computed = result.value
                     cell.computedType = result.type
                 } catch {
@@ -875,11 +919,101 @@ export function useSpreadsheet() {
             return cell.value
         }
 
-        for (const table of activeCanvas.value.tables) {
-            for (let r = 0; r < table.rows.length; r++)
-                for (let c = 0; c < table.columns.length; c++)
-                    if (table.rows[r][c].formula != null)
-                        resolveCellValue(table.id, c, r)
+        /** Build a FormulaContext for evaluating formulas inside a given table */
+        function buildFormulaContext(tableId: string): import('../engine/formula').FormulaContext {
+            // Determine which canvas this table belongs to, for local name resolution
+            const sourceCanvas = findTableGlobal(tableId)
+            const sourceCanvasId = sourceCanvas?.canvas.id
+
+            return {
+                getCellValue: (c, r) => resolveCellValue(tableId, c, r),
+                getCellType: (c, r) => {
+                    const refCell = getCellGlobal(tableId, c, r)
+                    if (!refCell) return 'empty'
+                    if (refCell.formula != null) {
+                        resolveCellValue(tableId, c, r)
+                        return refCell.computedType ?? refCell.cellType ?? 'empty'
+                    }
+                    return refCell.cellType ?? 'empty'
+                },
+                getCellRange: (sc, sr, ec, er) => {
+                    const vals: CellValue[] = []
+                    for (let r = sr; r <= er; r++)
+                        for (let c = sc; c <= ec; c++)
+                            vals.push(resolveCellValue(tableId, c, r))
+                    return vals
+                },
+                getCellRangeTypes: (sc, sr, ec, er) => {
+                    const types: CellDataType[] = []
+                    for (let r = sr; r <= er; r++)
+                        for (let c = sc; c <= ec; c++) {
+                            const refCell = getCellGlobal(tableId, c, r)
+                            if (!refCell) { types.push('empty'); continue }
+                            if (refCell.formula != null) {
+                                resolveCellValue(tableId, c, r)
+                                types.push(refCell.computedType ?? refCell.cellType ?? 'empty')
+                            } else {
+                                types.push(refCell.cellType ?? 'empty')
+                            }
+                        }
+                    return types
+                },
+
+                // ── Cross-table / cross-canvas resolution ──
+
+                resolveExternalCellValue: (canvasName, tableName, c, r) => {
+                    const t = findTableByName(tableName, canvasName, sourceCanvasId)
+                    if (!t) return '#REF!'
+                    return resolveCellValue(t.id, c, r)
+                },
+                resolveExternalCellType: (canvasName, tableName, c, r) => {
+                    const t = findTableByName(tableName, canvasName, sourceCanvasId)
+                    if (!t) return 'text'
+                    const cell = getCellGlobal(t.id, c, r)
+                    if (!cell) return 'empty'
+                    if (cell.formula != null) {
+                        resolveCellValue(t.id, c, r)
+                        return cell.computedType ?? cell.cellType ?? 'empty'
+                    }
+                    return cell.cellType ?? 'empty'
+                },
+                resolveExternalCellRange: (canvasName, tableName, sc, sr, ec, er) => {
+                    const t = findTableByName(tableName, canvasName, sourceCanvasId)
+                    if (!t) return ['#REF!']
+                    const vals: CellValue[] = []
+                    for (let r = sr; r <= er; r++)
+                        for (let c = sc; c <= ec; c++)
+                            vals.push(resolveCellValue(t.id, c, r))
+                    return vals
+                },
+                resolveExternalCellRangeTypes: (canvasName, tableName, sc, sr, ec, er) => {
+                    const t = findTableByName(tableName, canvasName, sourceCanvasId)
+                    if (!t) return ['text' as CellDataType]
+                    const types: CellDataType[] = []
+                    for (let r = sr; r <= er; r++)
+                        for (let c = sc; c <= ec; c++) {
+                            const cell = getCellGlobal(t.id, c, r)
+                            if (!cell) { types.push('empty'); continue }
+                            if (cell.formula != null) {
+                                resolveCellValue(t.id, c, r)
+                                types.push(cell.computedType ?? cell.cellType ?? 'empty')
+                            } else {
+                                types.push(cell.cellType ?? 'empty')
+                            }
+                        }
+                    return types
+                },
+            }
+        }
+
+        // Recalculate formulas across ALL canvases
+        for (const cv of canvases.value) {
+            for (const table of cv.tables) {
+                for (let r = 0; r < table.rows.length; r++)
+                    for (let c = 0; c < table.columns.length; c++)
+                        if (table.rows[r][c].formula != null)
+                            resolveCellValue(table.id, c, r)
+            }
         }
     }
 
@@ -887,6 +1021,42 @@ export function useSpreadsheet() {
 
     function findTable(id: string): SpreadsheetTable | undefined {
         return activeCanvas.value.tables.find(t => t.id === id)
+    }
+
+    /** Search for a table by ID across ALL canvases */
+    function findTableGlobal(id: string): { table: SpreadsheetTable; canvas: Canvas } | undefined {
+        for (const cv of canvases.value) {
+            const t = cv.tables.find(t => t.id === id)
+            if (t) return { table: t, canvas: cv }
+        }
+        return undefined
+    }
+
+    /**
+     * Find a table by its display name, optionally within a specific canvas.
+     * When sourceCanvasId is provided, that canvas is searched first for
+     * unqualified (no canvasName) references.
+     */
+    function findTableByName(tableName: string, canvasName?: string | null, sourceCanvasId?: string): SpreadsheetTable | undefined {
+        if (canvasName) {
+            const cv = canvases.value.find(c => c.name === canvasName)
+            if (!cv) return undefined
+            return cv.tables.find(t => t.name === tableName)
+        }
+        // Prefer the source canvas (the canvas containing the formula)
+        if (sourceCanvasId) {
+            const srcCv = canvases.value.find(c => c.id === sourceCanvasId)
+            if (srcCv) {
+                const local = srcCv.tables.find(t => t.name === tableName)
+                if (local) return local
+            }
+        }
+        // Fall back: search all canvases
+        for (const cv of canvases.value) {
+            const t = cv.tables.find(t => t.name === tableName)
+            if (t) return t
+        }
+        return undefined
     }
 
     function findTextBox(id: string): TextBox | undefined {
@@ -1166,6 +1336,7 @@ export function useSpreadsheet() {
         selectionRange,
         isEditing,
         editValue,
+        formulaMode,
         canvasOffset,
         canvasZoom,
         currentFilePath,
@@ -1271,6 +1442,11 @@ export function useSpreadsheet() {
         cancelEdit,
         clearActiveCell,
         moveSelection,
+
+        // Formula mode
+        toggleFormulaMode,
+        insertCellReference,
+        buildCellReferenceString,
 
         recalculate,
         findTable,

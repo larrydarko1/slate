@@ -1,7 +1,7 @@
 <template>
   <div
     class="spreadsheet-table"
-    :class="{ active: isActiveTable }"
+    :class="{ active: isActiveTable, 'formula-mode': ss.formulaMode.value && ss.isEditing.value }"
     :style="tableStyle"
     @mousedown="onTableMouseDown"
     @keydown="onKeyDown"
@@ -315,6 +315,14 @@ function mergedRowspan(ci: number, ri: number): number | undefined {
 let isDragging = false
 
 function onCellMouseDown(ci: number, ri: number, e: MouseEvent) {
+  // Formula mode: clicking inserts a cell reference instead of selecting
+  if (ss.formulaMode.value && ss.isEditing.value) {
+    e.preventDefault()
+    e.stopPropagation()
+    ss.insertCellReference(props.table.id, ci, ri)
+    return
+  }
+
   if (e.shiftKey) {
     // Extend selection
     ss.extendSelection(props.table.id, ci, ri)
@@ -398,7 +406,15 @@ function onCellDblClick(ci: number, ri: number) {
 }
 
 function onCellInput(e: Event) {
-  ss.editValue.value = (e.target as HTMLInputElement).value
+  const val = (e.target as HTMLInputElement).value
+  ss.editValue.value = val
+  // Auto-activate formula mode when typing a formula
+  if (val.startsWith('=') && !ss.formulaMode.value) {
+    ss.formulaMode.value = true
+  }
+  if (!val.startsWith('=') && ss.formulaMode.value) {
+    ss.formulaMode.value = false
+  }
 }
 
 function onCellEnter() {
@@ -699,6 +715,16 @@ watch(
   &.active {
     box-shadow: var(--shadow-lg);
     border-color: var(--accent-color);
+  }
+
+  &.formula-mode {
+    .cell {
+      cursor: crosshair;
+
+      &:hover {
+        background: var(--accent-color-alpha, rgba(66, 133, 244, 0.12)) !important;
+      }
+    }
   }
 }
 

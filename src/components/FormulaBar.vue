@@ -22,6 +22,19 @@
         @keydown.escape.prevent="onEscape"
         @keydown.tab.prevent="onTab"
       />
+      <button
+        class="formula-mode-btn"
+        :class="{ active: ss.formulaMode.value }"
+        :disabled="!activeCell"
+        @click.stop="ss.toggleFormulaMode()"
+        title="Point-to-insert mode — click cells to add references to formula"
+      >
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+          <circle cx="7" cy="7" r="5.5" stroke="currentColor" stroke-width="1.3"/>
+          <circle cx="7" cy="7" r="1.5" fill="currentColor"/>
+          <path d="M7 1.5v2M7 10.5v2M1.5 7h2M10.5 7h2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+        </svg>
+      </button>
     </div>
   </div>
 </template>
@@ -90,6 +103,14 @@ function onInput(e: Event) {
   const val = (e.target as HTMLInputElement).value
   ss.editValue.value = val
   if (!ss.isEditing.value) ss.isEditing.value = true
+  // Auto-activate formula mode when user starts typing a formula
+  if (val.startsWith('=') && !ss.formulaMode.value) {
+    ss.formulaMode.value = true
+  }
+  // Deactivate if formula prefix removed
+  if (!val.startsWith('=') && ss.formulaMode.value) {
+    ss.formulaMode.value = false
+  }
 }
 
 function onEnter() {
@@ -222,6 +243,37 @@ watch(() => ss.isEditing.value, (editing) => {
   }
 
   &:disabled {
+    cursor: default;
+  }
+}
+
+.formula-mode-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 22px;
+  border: 1px solid var(--border-color);
+  border-radius: 5px;
+  background: var(--bg-tertiary);
+  color: var(--text-muted);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all 0.15s;
+
+  &:hover:not(:disabled) {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+  }
+
+  &.active {
+    background: var(--accent-color);
+    border-color: var(--accent-color);
+    color: #fff;
+  }
+
+  &:disabled {
+    opacity: 0.4;
     cursor: default;
   }
 }
