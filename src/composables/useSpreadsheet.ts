@@ -546,8 +546,149 @@ export function useSpreadsheet() {
 
     function clearActiveCell() {
         if (!activeCell.value) return
-        const { tableId, col, row } = activeCell.value
-        setCellValue(tableId, col, row, '')
+        // If there's a multi-cell selection, clear all selected cells
+        const sr = getNormalizedSelection()
+        if (sr && (sr.startCol !== sr.endCol || sr.startRow !== sr.endRow)) {
+            for (let r = sr.startRow; r <= sr.endRow; r++) {
+                for (let c = sr.startCol; c <= sr.endCol; c++) {
+                    setCellValue(sr.tableId, c, r, '')
+                }
+            }
+        } else {
+            const { tableId, col, row } = activeCell.value
+            setCellValue(tableId, col, row, '')
+        }
+    }
+
+    // ── Clipboard (Copy / Cut / Paste) ──
+
+    interface ClipboardCell {
+        raw: string            // Raw value string (or "=formula")
+        format?: import('../types/spreadsheet').CellFormat
+    }
+
+    /** Internal clipboard buffer: 2-D grid [row][col] */
+    let clipboardData: ClipboardCell[][] | null = null
+    let clipboardIsCut = false
+    let clipboardSource: SelectionRange | null = null
+
+    /**
+     * Collect cell data from the current selection into the internal
+     * clipboard buffer and write a TSV string to the system clipboard.
+     */
+    async function copyCells(cut = false) {
+        const sr = getNormalizedSelection()
+        if (!sr) return
+
+        const rows: ClipboardCell[][] = []
+        const tsvRows: string[] = []
+
+        for (let r = sr.startRow; r <= sr.endRow; r++) {
+            const rowCells: ClipboardCell[] = []
+            const tsvCols: string[] = []
+            for (let c = sr.startCol; c <= sr.endCol; c++) {
+                const raw = getRawValue(sr.tableId, c, r)
+                const cell = getCell(sr.tableId, c, r)
+                rowCells.push({
+                    raw,
+                    format: cell?.format ? { ...cell.format } : undefined,
+                })
+                // For the system clipboard use the display value so other apps
+                // get nicely-formatted text.
+                tsvCols.push(getDisplayValue(sr.tableId, c, r))
+            }
+            rows.push(rowCells)
+            tsvRows.push(tsvCols.join('\t'))
+        }
+
+        clipboardData = rows
+        clipboardIsCut = cut
+        clipboardSource = { ...sr }
+
+        // Write to system clipboard (best-effort; may be blocked by browser)
+        try {
+            await navigator.clipboard.writeText(tsvRows.join('\n'))
+        } catch { /* ignore – internal clipboard still works */ }
+    }
+
+    async function cutCells() {
+        await copyCells(true)
+    }
+
+    /**
+     * Paste clipboard data starting at the active cell.
+     * Prefers the internal buffer; falls back to parsing the system clipboard.
+     */
+    async function pasteCells() {
+        if (!activeCell.value) return
+        const { tableId, col: startCol, row: startRow } = activeCell.value
+        const t = findTable(tableId)
+        if (!t) return
+
+        let data = clipboardData
+
+        // If no internal data, try reading from system clipboard
+        if (!data) {
+            try {
+                const text = await navigator.clipboard.readText()
+                if (text) {
+                    data = text.split('\n').map(line =>
+                        line.split('\t').map(v => ({ raw: v }))
+                    )
+                }
+            } catch { /* clipboard read blocked */ }
+        }
+
+        if (!data || data.length === 0) return
+
+        // Expand table if necessary
+        const neededRows = startRow + data.length
+        const neededCols = startCol + Math.max(...data.map(r => r.length))
+        while (t.rows.length < neededRows) {
+            t.rows.push(t.columns.map(() => createEmptyCell()))
+        }
+        while (t.columns.length < neededCols) {
+            t.columns.push({ id: generateId('col'), width: 120 })
+            for (const row of t.rows) row.push(createEmptyCell())
+        }
+
+        // Write cells
+        for (let r = 0; r < data.length; r++) {
+            for (let c = 0; c < data[r].length; c++) {
+                const entry = data[r][c]
+                setCellValue(tableId, startCol + c, startRow + r, entry.raw)
+                if (entry.format) {
+                    setCellFormat(tableId, startCol + c, startRow + r, entry.format)
+                }
+            }
+        }
+
+        // If it was a cut, clear the source cells
+        if (clipboardIsCut && clipboardSource) {
+            const src = clipboardSource
+            for (let r = src.startRow; r <= src.endRow; r++) {
+                for (let c = src.startCol; c <= src.endCol; c++) {
+                    // Don't clear if pasting over the same position
+                    const destRow = startRow + (r - src.startRow)
+                    const destCol = startCol + (c - src.startCol)
+                    if (src.tableId === tableId && c === destCol && r === destRow) continue
+                    setCellValue(src.tableId, c, r, '')
+                }
+            }
+            clipboardIsCut = false
+            clipboardSource = null
+        }
+
+        // Select the pasted region
+        selectionRange.value = {
+            tableId,
+            startCol,
+            startRow,
+            endCol: startCol + Math.max(...data.map(r => r.length)) - 1,
+            endRow: startRow + data.length - 1,
+        }
+
+        recalculate()
     }
 
     // ── Merge / Unmerge ──
@@ -1089,6 +1230,11 @@ export function useSpreadsheet() {
         mergeSelection,
         unmergeSelection,
         selectionHasMerge,
+
+        // Clipboard
+        copyCells,
+        cutCells,
+        pasteCells,
 
         // Editing
         startEditing,

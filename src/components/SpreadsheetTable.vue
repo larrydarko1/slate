@@ -391,6 +391,13 @@ function onKeyDown(e: KeyboardEvent) {
   const ac = ss.activeCell.value
   if (!ac || ac.tableId !== props.table.id) return
 
+  const mod = e.metaKey || e.ctrlKey
+
+  // Copy / Cut / Paste
+  if (mod && e.key === 'c') { e.preventDefault(); ss.copyCells(); return }
+  if (mod && e.key === 'x') { e.preventDefault(); ss.cutCells(); return }
+  if (mod && e.key === 'v') { e.preventDefault(); ss.pasteCells(); return }
+
   switch (e.key) {
     case 'ArrowUp':    e.preventDefault(); ss.moveSelection(0, -1); break
     case 'ArrowDown':  e.preventDefault(); ss.moveSelection(0, 1); break
@@ -508,6 +515,10 @@ function onCellContextMenu(ci: number, ri: number, e: MouseEvent) {
   const hasSelection = ss.hasMultiCellSelection()
 
   const items: MenuItem[] = [
+    { label: 'Copy', action: () => ss.copyCells() },
+    { label: 'Cut', action: () => ss.cutCells() },
+    { label: 'Paste', action: () => ss.pasteCells() },
+    { label: '', separator: true },
     { label: 'Clear Cell', action: () => ss.clearActiveCell() },
     { label: '', separator: true },
   ]
