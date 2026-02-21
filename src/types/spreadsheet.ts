@@ -81,13 +81,18 @@ export interface TextBox {
 
 export type ChartType = 'bar' | 'line' | 'pie' | 'doughnut' | 'scatter' | 'area'
 
+/** A single cell-range reference for chart data (formula-style ref string) */
+export interface ChartDataRef {
+    /** Reference string, e.g. "Table 1::A2:A10", "'Canvas 2'::'Table 1'::C1:C10" */
+    refString: string
+}
+
 export interface ChartDataSource {
-    tableId: string
-    /** Column index used for labels (X axis / slice names) */
-    labelCol: number
-    /** Column indices whose values are plotted as series */
-    valueCols: number[]
-    /** Whether the first data row is a header (used for series names) */
+    /** Label / category data reference (X axis labels, slice names) */
+    labelRef: ChartDataRef | null
+    /** Value series — each entry is one data series plotted on the chart */
+    seriesRefs: ChartDataRef[]
+    /** Whether the first cell of each range is a header (used for series names) */
     useHeader: boolean
 }
 

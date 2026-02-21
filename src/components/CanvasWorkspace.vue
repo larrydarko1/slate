@@ -73,6 +73,7 @@ function onCanvasMouseDown(e: MouseEvent) {
   ss.activeCell.value = null
   ss.activeTextBoxId.value = null
   ss.activeChartId.value = null
+  ss.stopChartDataSelection()
   if (ss.isEditing.value) ss.commitEdit()
 
   panState = {

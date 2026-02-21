@@ -33,6 +33,24 @@ export function useSpreadsheet() {
     const editValue = ref('')
     const formulaMode = ref(false)
 
+    // ── Chart data selection mode (Apple Numbers style) ──
+    /** Which field is being picked: 'labels' | 'series:0' | 'series:1' | ... */
+    const chartSelectionMode = ref<string | null>(null)
+    /** Whether we're currently in chart data selection mode */
+    const chartSelectionActive = computed(() => chartSelectionMode.value !== null)
+
+    // Color palette for chart data references
+    const CHART_REF_COLORS = [
+        '#3b82f6', // blue
+        '#ef4444', // red
+        '#22c55e', // green
+        '#f59e0b', // amber
+        '#8b5cf6', // violet
+        '#ec4899', // pink
+        '#06b6d4', // cyan
+        '#f97316', // orange
+    ]
+
     // Color palette for formula references (Apple Numbers style)
     const REF_COLORS = [
         '#3b82f6', // blue
@@ -94,6 +112,7 @@ export function useSpreadsheet() {
         activeChartId.value = null
         selectionRange.value = null
         isEditing.value = false
+        chartSelectionMode.value = null
         activeCanvasId.value = canvasId
         // Recalculate maxZ for the new canvas
         const cv = activeCanvas.value
@@ -1233,6 +1252,7 @@ export function useSpreadsheet() {
 
     function selectTextBox(id: string) {
         if (isEditing.value) commitEdit()
+        stopChartDataSelection()
         activeCell.value = null
         activeChartId.value = null
         selectionRange.value = null
@@ -1287,11 +1307,268 @@ export function useSpreadsheet() {
 
     function selectChart(id: string) {
         if (isEditing.value) commitEdit()
+        if (activeChartId.value !== id) stopChartDataSelection()
         activeCell.value = null
         activeTextBoxId.value = null
         selectionRange.value = null
         activeChartId.value = id
         bringToFrontById(id)
+    }
+
+    // ── Chart data selection (Apple Numbers–style) ──
+
+    /**
+     * Enter chart data selection mode for a specific field.
+     * @param mode 'labels' | 'series:0' | 'series:1' …
+     */
+    function startChartDataSelection(mode: string) {
+        if (!activeChartId.value) return
+        chartSelectionMode.value = mode
+    }
+
+    function stopChartDataSelection() {
+        chartSelectionMode.value = null
+    }
+
+    /**
+     * Called when the user finishes selecting a range while in chart selection mode.
+     * Builds the reference string and writes it into the chart data source.
+     */
+    function handleChartCellSelection(tableId: string, startCol: number, startRow: number, endCol: number, endRow: number) {
+        if (!chartSelectionMode.value || !activeChartId.value) return
+        const chart = findChart(activeChartId.value)
+        if (!chart) return
+
+        const refStr = buildChartRefString(tableId, startCol, startRow, endCol, endRow)
+        if (!refStr) return
+
+        const mode = chartSelectionMode.value
+        const ds = chart.dataSource
+            ? { labelRef: chart.dataSource.labelRef, seriesRefs: [...chart.dataSource.seriesRefs], useHeader: chart.dataSource.useHeader }
+            : { labelRef: null, seriesRefs: [], useHeader: true }
+
+        if (mode === 'labels') {
+            ds.labelRef = { refString: refStr }
+        } else if (mode.startsWith('series:')) {
+            const idx = parseInt(mode.split(':')[1])
+            while (ds.seriesRefs.length <= idx) {
+                ds.seriesRefs.push({ refString: '' })
+            }
+            ds.seriesRefs[idx] = { refString: refStr }
+        }
+
+        updateChart(chart.id, { dataSource: ds })
+    }
+
+    /**
+     * Build a fully-qualified reference string for a chart cell range.
+     * Always includes the table name. Includes canvas name for cross-canvas refs.
+     */
+    function buildChartRefString(tableId: string, startCol: number, startRow: number, endCol: number, endRow: number): string {
+        const info = findTableGlobal(tableId)
+        if (!info) return ''
+
+        const tableName = info.table.name
+        const quoteIfNeeded = (n: string) => n.match(/^[A-Za-z_]\w*$/) ? n : `'${n}'`
+
+        const startRef = `${indexToColumnLetter(startCol)}${startRow + 1}`
+        const isSingleCell = startCol === endCol && startRow === endRow
+        const cellRef = isSingleCell ? startRef : `${startRef}:${indexToColumnLetter(endCol)}${endRow + 1}`
+
+        // Same canvas → table::ref
+        if (info.canvas.id === activeCanvasId.value) {
+            return `${quoteIfNeeded(tableName)}::${cellRef}`
+        }
+
+        // Different canvas → canvas::table::ref
+        const canvasName = info.canvas.name
+        return `${quoteIfNeeded(canvasName)}::${quoteIfNeeded(tableName)}::${cellRef}`
+    }
+
+    /**
+     * Resolve a chart reference string into table ID and cell range.
+     */
+    function resolveChartRef(refString: string): { tableId: string; startCol: number; startRow: number; endCol: number; endRow: number } | null {
+        if (!refString) return null
+        const parts = refString.split('::')
+        const cellPart = parts[parts.length - 1]
+
+        // Parse cell/range part: "A1" or "A1:B5"
+        const rangeParts = cellPart.split(':')
+        const startMatch = rangeParts[0].match(/^([A-Z]+)(\d+)$/)
+        if (!startMatch) return null
+
+        const startCol = columnLetterToIndex(startMatch[1])
+        const startRow = parseInt(startMatch[2]) - 1
+        let endCol = startCol
+        let endRow = startRow
+
+        if (rangeParts.length === 2) {
+            const endMatch = rangeParts[1].match(/^([A-Z]+)(\d+)$/)
+            if (endMatch) {
+                endCol = columnLetterToIndex(endMatch[1])
+                endRow = parseInt(endMatch[2]) - 1
+            }
+        }
+
+        const unquote = (s: string) => s.startsWith("'") && s.endsWith("'") ? s.slice(1, -1) : s
+
+        if (parts.length === 2) {
+            // table::ref
+            const tableName = unquote(parts[0])
+            const t = findTableByName(tableName)
+            if (!t) return null
+            return { tableId: t.id, startCol, startRow, endCol, endRow }
+        }
+
+        if (parts.length === 3) {
+            // canvas::table::ref
+            const canvasName = unquote(parts[0])
+            const tableName = unquote(parts[1])
+            const t = findTableByName(tableName, canvasName)
+            if (!t) return null
+            return { tableId: t.id, startCol, startRow, endCol, endRow }
+        }
+
+        return null
+    }
+
+    /**
+     * Get cell values from a chart data reference.
+     * Iterates row-by-row, column-by-column within the range.
+     */
+    function getChartRefValues(refString: string): CellValue[] {
+        const resolved = resolveChartRef(refString)
+        if (!resolved) return []
+
+        const info = findTableGlobal(resolved.tableId)
+        if (!info) return []
+        const table = info.table
+
+        const values: CellValue[] = []
+        // Determine if range is a column (vertical) or row (horizontal)
+        // For vertical ranges (most common), iterate rows
+        // For horizontal ranges, iterate cols
+        for (let r = resolved.startRow; r <= resolved.endRow; r++) {
+            for (let c = resolved.startCol; c <= resolved.endCol; c++) {
+                const cell = table.rows[r]?.[c]
+                if (!cell) { values.push(null); continue }
+                if (cell.formula != null) {
+                    values.push(cell.computed ?? null)
+                } else {
+                    values.push(cell.value)
+                }
+            }
+        }
+        return values
+    }
+
+    /**
+     * Get colored highlights for all data references of the active chart.
+     * Used by SpreadsheetTable to draw colored outlines on referenced cells.
+     */
+    function getChartDataHighlights(): Array<{ tableId: string; col: number; row: number; color: string }> {
+        if (!activeChartId.value) return []
+        const chart = findChart(activeChartId.value)
+        if (!chart || !chart.dataSource) return []
+
+        const ds = chart.dataSource
+        const highlights: Array<{ tableId: string; col: number; row: number; color: string }> = []
+
+        // Labels get a slate/gray color
+        if (ds.labelRef) {
+            const resolved = resolveChartRef(ds.labelRef.refString)
+            if (resolved) {
+                for (let r = resolved.startRow; r <= resolved.endRow; r++) {
+                    for (let c = resolved.startCol; c <= resolved.endCol; c++) {
+                        highlights.push({ tableId: resolved.tableId, col: c, row: r, color: '#94a3b8' })
+                    }
+                }
+            }
+        }
+
+        // Each series gets a color from the chart ref palette
+        ds.seriesRefs.forEach((sref, i) => {
+            const resolved = resolveChartRef(sref.refString)
+            if (!resolved) return
+            const color = CHART_REF_COLORS[i % CHART_REF_COLORS.length]
+            for (let r = resolved.startRow; r <= resolved.endRow; r++) {
+                for (let c = resolved.startCol; c <= resolved.endCol; c++) {
+                    highlights.push({ tableId: resolved.tableId, col: c, row: r, color })
+                }
+            }
+        })
+
+        return highlights
+    }
+
+    /**
+     * Add a new empty series slot to the active chart.
+     */
+    function addChartSeries() {
+        if (!activeChartId.value) return
+        const chart = findChart(activeChartId.value)
+        if (!chart) return
+        const ds = chart.dataSource
+            ? { labelRef: chart.dataSource.labelRef, seriesRefs: [...chart.dataSource.seriesRefs], useHeader: chart.dataSource.useHeader }
+            : { labelRef: null, seriesRefs: [], useHeader: true }
+        ds.seriesRefs.push({ refString: '' })
+        updateChart(chart.id, { dataSource: ds })
+    }
+
+    /**
+     * Remove a series from the active chart by index.
+     */
+    function removeChartSeries(index: number) {
+        if (!activeChartId.value) return
+        const chart = findChart(activeChartId.value)
+        if (!chart || !chart.dataSource) return
+        const ds = { ...chart.dataSource, seriesRefs: [...chart.dataSource.seriesRefs] }
+        ds.seriesRefs.splice(index, 1)
+        updateChart(chart.id, { dataSource: ds })
+        // If the removed series was being picked, stop selection
+        if (chartSelectionMode.value === `series:${index}`) {
+            stopChartDataSelection()
+        }
+    }
+
+    /**
+     * Set a chart data ref directly (e.g. when user types in the input field).
+     * @param mode 'labels' | 'series:0' | 'series:1' …
+     * @param refString the reference string
+     */
+    function setChartDataRef(mode: string, refString: string) {
+        if (!activeChartId.value) return
+        const chart = findChart(activeChartId.value)
+        if (!chart) return
+        const ds = chart.dataSource
+            ? { labelRef: chart.dataSource.labelRef, seriesRefs: [...chart.dataSource.seriesRefs], useHeader: chart.dataSource.useHeader }
+            : { labelRef: null, seriesRefs: [], useHeader: true }
+
+        if (mode === 'labels') {
+            ds.labelRef = refString ? { refString } : null
+        } else if (mode.startsWith('series:')) {
+            const idx = parseInt(mode.split(':')[1])
+            while (ds.seriesRefs.length <= idx) {
+                ds.seriesRefs.push({ refString: '' })
+            }
+            ds.seriesRefs[idx] = { refString }
+        }
+
+        updateChart(chart.id, { dataSource: ds })
+    }
+
+    /**
+     * Get all tables across all canvases (for chart data source browsing).
+     */
+    function getAllTables(): Array<{ canvasId: string; canvasName: string; table: SpreadsheetTable }> {
+        const result: Array<{ canvasId: string; canvasName: string; table: SpreadsheetTable }> = []
+        for (const cv of canvases.value) {
+            for (const t of cv.tables) {
+                result.push({ canvasId: cv.id, canvasName: cv.name, table: t })
+            }
+        }
+        return result
     }
 
     // ── File Operations ──
@@ -1336,21 +1613,62 @@ export function useSpreadsheet() {
         }
     }
 
+    /**
+     * Migrate old-format chart data sources (tableId + labelCol + valueCols)
+     * to new ref-based format (labelRef + seriesRefs).
+     */
+    function migrateChartDataSource(chart: any, allTables: SpreadsheetTable[]) {
+        if (!chart.dataSource) return chart
+        const ds = chart.dataSource
+
+        // Already new format
+        if ('labelRef' in ds || 'seriesRefs' in ds) return chart
+
+        // Old format: { tableId, labelCol, valueCols, useHeader }
+        if ('tableId' in ds && 'valueCols' in ds) {
+            const table = allTables.find(t => t.id === ds.tableId)
+            if (!table) {
+                chart.dataSource = null
+                return chart
+            }
+            const rowCount = table.rows.length
+            const tableName = table.name
+            const q = (n: string) => n.match(/^[A-Za-z_]\w*$/) ? n : `'${n}'`
+
+            const buildRef = (col: number) => {
+                const colLetter = indexToColumnLetter(col)
+                return `${q(tableName)}::${colLetter}1:${colLetter}${rowCount}`
+            }
+
+            chart.dataSource = {
+                labelRef: { refString: buildRef(ds.labelCol ?? 0) },
+                seriesRefs: (ds.valueCols ?? []).map((col: number) => ({ refString: buildRef(col) })),
+                useHeader: ds.useHeader ?? true,
+            }
+        }
+
+        return chart
+    }
+
     function deserializeState(jsonContent: string) {
         try {
             const data = JSON.parse(jsonContent)
 
             if (data.version === '2.0' && data.canvases) {
                 // V2 format – multi-canvas
-                canvases.value = data.canvases.map((cv: any) => ({
-                    id: cv.id,
-                    name: cv.name,
-                    canvasOffset: cv.canvasOffset ?? { x: 0, y: 0 },
-                    canvasZoom: cv.canvasZoom ?? 1.0,
-                    tables: (cv.tables ?? []).map(migrateTable),
-                    textBoxes: cv.textBoxes ?? [],
-                    charts: cv.charts ?? [],
-                }))
+                canvases.value = data.canvases.map((cv: any) => {
+                    const tables = (cv.tables ?? []).map(migrateTable)
+                    const charts = (cv.charts ?? []).map((ch: any) => migrateChartDataSource(ch, tables))
+                    return {
+                        id: cv.id,
+                        name: cv.name,
+                        canvasOffset: cv.canvasOffset ?? { x: 0, y: 0 },
+                        canvasZoom: cv.canvasZoom ?? 1.0,
+                        tables,
+                        textBoxes: cv.textBoxes ?? [],
+                        charts,
+                    }
+                })
                 canvasCount = canvases.value.length
                 activeCanvasId.value = data.activeCanvasId ?? canvases.value[0].id
                 const acv = activeCanvas.value
@@ -1508,6 +1826,21 @@ export function useSpreadsheet() {
         updateChart,
         selectChart,
         findChart,
+
+        // Chart data selection (Apple Numbers style)
+        chartSelectionMode,
+        chartSelectionActive,
+        startChartDataSelection,
+        stopChartDataSelection,
+        handleChartCellSelection,
+        resolveChartRef,
+        getChartRefValues,
+        getChartDataHighlights,
+        addChartSeries,
+        removeChartSeries,
+        setChartDataRef,
+        buildChartRefString,
+        getAllTables,
 
         // Rows & Columns
         addRow,

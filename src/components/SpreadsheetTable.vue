@@ -237,7 +237,7 @@ function cellClasses(ci: number, ri: number) {
     'in-selection': ss.isInSelection(props.table.id, ci, ri) && !isSelected(ci, ri),
     'header-row': ri < props.table.headerRows,
     'merged-cell': !!ss.isMergedOrigin(props.table.id, ci, ri),
-    'formula-ref-highlight': !!getRefHighlightColor(ci, ri),
+    'formula-ref-highlight': !!(getRefHighlightColor(ci, ri) || getChartHighlightColor(ci, ri)),
   }
 }
 
@@ -248,9 +248,16 @@ function getRefHighlightColor(ci: number, ri: number): string | null {
   return h ? h.color : null
 }
 
-/** Build inline style with colored outline for formula-referenced cells */
+/** Get the color for a cell referenced by the active chart's data source */
+function getChartHighlightColor(ci: number, ri: number): string | null {
+  const highlights = ss.getChartDataHighlights()
+  const h = highlights.find(h => h.tableId === props.table.id && h.col === ci && h.row === ri)
+  return h ? h.color : null
+}
+
+/** Build inline style with colored outline for formula-referenced or chart-referenced cells */
 function cellRefStyle(ci: number, ri: number): Record<string, string> | undefined {
-  const color = getRefHighlightColor(ci, ri)
+  const color = getRefHighlightColor(ci, ri) || getChartHighlightColor(ci, ri)
   if (!color) return undefined
   return {
     boxShadow: `inset 0 0 0 2px ${color}`,
@@ -336,8 +343,23 @@ function mergedRowspan(ci: number, ri: number): number | undefined {
 // ── Cell interaction ──
 
 let isDragging = false
+let isChartDragging = false
+let chartDragStart: { ci: number; ri: number } | null = null
 
 function onCellMouseDown(ci: number, ri: number, e: MouseEvent) {
+  // Chart data selection mode: clicking captures a range for chart data
+  if (ss.chartSelectionActive.value) {
+    e.preventDefault()
+    e.stopPropagation()
+    isChartDragging = true
+    chartDragStart = { ci, ri }
+    // Immediately commit single-cell selection (will be updated on drag)
+    ss.handleChartCellSelection(props.table.id, ci, ri, ci, ri)
+    document.addEventListener('mousemove', onChartDragMove)
+    document.addEventListener('mouseup', onChartDragEnd)
+    return
+  }
+
   // Formula mode: clicking inserts a cell reference instead of selecting
   if (ss.formulaMode.value && ss.isEditing.value) {
     e.preventDefault()
@@ -358,9 +380,29 @@ function onCellMouseDown(ci: number, ri: number, e: MouseEvent) {
 }
 
 function onCellMouseOver(ci: number, ri: number) {
+  if (isChartDragging && chartDragStart) {
+    // Extend chart data range drag
+    const startCol = Math.min(chartDragStart.ci, ci)
+    const startRow = Math.min(chartDragStart.ri, ri)
+    const endCol = Math.max(chartDragStart.ci, ci)
+    const endRow = Math.max(chartDragStart.ri, ri)
+    ss.handleChartCellSelection(props.table.id, startCol, startRow, endCol, endRow)
+    return
+  }
   if (isDragging) {
     ss.extendSelection(props.table.id, ci, ri)
   }
+}
+
+function onChartDragMove(_e: MouseEvent) {
+  // Handled by onCellMouseOver via mouseover events on cells
+}
+
+function onChartDragEnd() {
+  isChartDragging = false
+  chartDragStart = null
+  document.removeEventListener('mousemove', onChartDragMove)
+  document.removeEventListener('mouseup', onChartDragEnd)
 }
 
 function onSelectionMouseUp() {

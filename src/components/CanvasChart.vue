@@ -30,7 +30,7 @@
       <div v-else class="chart-empty">
         <p class="chart-empty-icon">📊</p>
         <p class="chart-empty-text">Select a data source</p>
-        <p class="chart-empty-sub">Choose a table and columns to visualize</p>
+        <p class="chart-empty-sub">Click a reference field, then select cells on any table</p>
       </div>
     </div>
 
@@ -47,42 +47,74 @@
           <option value="area">Area</option>
         </select>
       </div>
-      <div class="config-row">
-        <label>Table</label>
-        <select :value="chart.dataSource?.tableId ?? ''" @change="onTableChange">
-          <option value="">— Select —</option>
-          <option v-for="t in ss.tables.value" :key="t.id" :value="t.id">
-            {{ t.name }}
-          </option>
-        </select>
+
+      <!-- Labels reference -->
+      <div class="config-section">
+        <div class="config-section-header">Labels</div>
+        <div
+          class="ref-field"
+          :class="{ picking: ss.chartSelectionMode.value === 'labels' }"
+          :style="refFieldStyle('labels')"
+          @click="onRefFieldClick('labels')"
+        >
+          <span class="ref-color-dot" :style="{ background: '#94a3b8' }"></span>
+          <input
+            class="ref-input"
+            :value="chart.dataSource?.labelRef?.refString ?? ''"
+            @input="onRefInput('labels', $event)"
+            @focus="onRefFieldClick('labels')"
+            @mousedown.stop
+            placeholder="Click here, then select cells…"
+          />
+          <button
+            v-if="chart.dataSource?.labelRef"
+            class="ref-clear"
+            @click.stop="clearRef('labels')"
+            title="Clear"
+          >×</button>
+        </div>
       </div>
-      <template v-if="selectedTable">
-        <div class="config-row">
-          <label>Labels</label>
-          <select :value="chart.dataSource?.labelCol ?? 0" @change="onLabelColChange">
-            <option v-for="(col, i) in selectedTable.columns" :key="col.id" :value="i">
-              {{ getColLetter(i) }} — {{ getHeaderName(i) }}
-            </option>
-          </select>
+
+      <!-- Series references -->
+      <div class="config-section">
+        <div class="config-section-header">
+          <span>Series</span>
+          <button class="add-series-btn" @click="ss.addChartSeries()" title="Add series">+</button>
         </div>
-        <div class="config-row">
-          <label>Values</label>
-          <div class="value-cols">
-            <label
-              v-for="(col, i) in selectedTable.columns"
-              :key="col.id"
-              class="value-col-check"
-            >
-              <input
-                type="checkbox"
-                :checked="(chart.dataSource?.valueCols ?? []).includes(i)"
-                @change="onValueColToggle(i, ($event.target as HTMLInputElement).checked)"
-              />
-              {{ getColLetter(i) }} — {{ getHeaderName(i) }}
-            </label>
-          </div>
+        <div
+          v-for="(sref, i) in (chart.dataSource?.seriesRefs ?? [])"
+          :key="i"
+          class="ref-field"
+          :class="{ picking: ss.chartSelectionMode.value === 'series:' + i }"
+          :style="refFieldStyle('series:' + i)"
+          @click="onRefFieldClick('series:' + i)"
+        >
+          <span class="ref-color-dot" :style="{ background: seriesColor(i) }"></span>
+          <input
+            class="ref-input"
+            :value="sref.refString"
+            @input="onRefInput('series:' + i, $event)"
+            @focus="onRefFieldClick('series:' + i)"
+            @mousedown.stop
+            placeholder="Click here, then select cells…"
+          />
+          <button
+            class="ref-clear"
+            @click.stop="ss.removeChartSeries(i)"
+            title="Remove series"
+          >×</button>
         </div>
-      </template>
+        <div v-if="!chart.dataSource?.seriesRefs?.length" class="ref-empty-hint">
+          Click <strong>+</strong> to add a data series
+        </div>
+      </div>
+
+      <!-- Options -->
+      <div class="config-row">
+        <label>Header</label>
+        <input type="checkbox" :checked="chart.dataSource?.useHeader ?? true" @change="onHeaderToggle" />
+        <span class="config-hint">First row is header</span>
+      </div>
       <div class="config-row">
         <label>Legend</label>
         <select :value="chart.showLegend ? chart.legendPosition : 'off'" @change="onLegendChange">
@@ -124,8 +156,7 @@
 
 <script setup lang="ts">
 import { computed, inject, type PropType } from 'vue'
-import type { ChartObject, SpreadsheetTable } from '../types/spreadsheet'
-import { indexToColumnLetter } from '../types/spreadsheet'
+import type { ChartObject } from '../types/spreadsheet'
 import { SPREADSHEET_KEY } from '../composables/useSpreadsheet'
 import {
   Chart as ChartJS,
@@ -164,23 +195,25 @@ const boxStyle = computed(() => ({
   zIndex: props.chart.zIndex,
 }))
 
-// ── Data source helpers ──
+// ── Chart ref color palette (must match composable CHART_REF_COLORS) ──
 
-const selectedTable = computed<SpreadsheetTable | undefined>(() => {
-  if (!props.chart.dataSource) return undefined
-  return ss.tables.value.find(t => t.id === props.chart.dataSource!.tableId)
-})
+const CHART_REF_COLORS = [
+  '#3b82f6', '#ef4444', '#22c55e', '#f59e0b',
+  '#8b5cf6', '#ec4899', '#06b6d4', '#f97316',
+]
 
-function getColLetter(i: number) {
-  return indexToColumnLetter(i)
+function seriesColor(i: number) {
+  return CHART_REF_COLORS[i % CHART_REF_COLORS.length]
 }
 
-function getHeaderName(i: number): string {
-  const tbl = selectedTable.value
-  if (!tbl || tbl.rows.length === 0) return getColLetter(i)
-  const cell = tbl.rows[0][i]
-  if (cell && cell.value != null && cell.value !== '') return String(cell.value)
-  return getColLetter(i)
+function refFieldStyle(mode: string) {
+  const isPicking = ss.chartSelectionMode.value === mode
+  if (!isPicking) return {}
+  const color = mode === 'labels' ? '#94a3b8' : seriesColor(parseInt(mode.split(':')[1] ?? '0'))
+  return {
+    borderColor: color,
+    boxShadow: '0 0 0 1px ' + color,
+  }
 }
 
 // ── Chart.js reactive data ──
@@ -199,63 +232,101 @@ const chartComponent = computed(() => {
 
 const chartData = computed(() => {
   const ds = props.chart.dataSource
-  const tbl = selectedTable.value
-  if (!ds || !tbl || ds.valueCols.length === 0) return null
+  if (!ds || ds.seriesRefs.length === 0) return null
 
-  const startRow = tbl.headerRows
-  const dataRows = tbl.rows.slice(startRow)
+  const useHeader = ds.useHeader
 
-  const labels = dataRows.map(row => {
-    const cell = row[ds.labelCol]
-    return cell?.value != null ? String(cell.value) : ''
-  })
+  // Resolve labels
+  let labels: string[] = []
+  if (ds.labelRef && ds.labelRef.refString) {
+    const vals = ss.getChartRefValues(ds.labelRef.refString)
+    if (useHeader && vals.length > 0) {
+      labels = vals.slice(1).map(v => v != null ? String(v) : '')
+    } else {
+      labels = vals.map(v => v != null ? String(v) : '')
+    }
+  }
 
-  const datasets = ds.valueCols.map((colIdx, seriesIdx) => {
-    const data = dataRows.map(row => {
-      const cell = row[colIdx]
-      if (cell?.computed != null) return Number(cell.computed) || 0
-      return typeof cell?.value === 'number' ? cell.value : (Number(cell?.value) || 0)
-    })
+  // Resolve series
+  const datasets = ds.seriesRefs
+    .filter(sref => sref.refString)
+    .map((sref, seriesIdx) => {
+      const vals = ss.getChartRefValues(sref.refString)
+      let name = 'Series ' + (seriesIdx + 1)
+      let data: number[]
 
-    const color = props.chart.colorScheme[seriesIdx % props.chart.colorScheme.length]
-    const name = getHeaderName(colIdx)
+      if (useHeader && vals.length > 0) {
+        name = vals[0] != null ? String(vals[0]) : name
+        data = vals.slice(1).map(v => {
+          if (v == null) return 0
+          if (typeof v === 'number') return v
+          return Number(v) || 0
+        })
+      } else {
+        data = vals.map(v => {
+          if (v == null) return 0
+          if (typeof v === 'number') return v
+          return Number(v) || 0
+        })
+      }
 
-    if (props.chart.chartType === 'pie' || props.chart.chartType === 'doughnut') {
+      // Auto-generate labels if none provided
+      if (labels.length === 0) {
+        labels = data.map((_, i) => String(i + 1))
+      }
+
+      const color = props.chart.colorScheme[seriesIdx % props.chart.colorScheme.length]
+
+      if (props.chart.chartType === 'pie' || props.chart.chartType === 'doughnut') {
+        return {
+          label: name,
+          data,
+          backgroundColor: data.map((_, i) => props.chart.colorScheme[i % props.chart.colorScheme.length]),
+          borderWidth: 1,
+        }
+      }
+
       return {
         label: name,
         data,
-        backgroundColor: data.map((_, i) => props.chart.colorScheme[i % props.chart.colorScheme.length]),
-        borderWidth: 1,
-      }
-    }
-
-    return {
-      label: name,
-      data,
-      backgroundColor: color + '99',
-      borderColor: color,
-      borderWidth: 2,
-      fill: props.chart.chartType === 'area',
-      tension: props.chart.chartType === 'line' || props.chart.chartType === 'area' ? 0.3 : 0,
-    }
-  })
-
-  if (props.chart.chartType === 'scatter') {
-    // Scatter uses {x,y} points
-    const scatterDatasets = ds.valueCols.map((colIdx, seriesIdx) => {
-      const data = dataRows.map((row, i) => ({
-        x: Number(labels[i]) || i,
-        y: typeof row[colIdx]?.value === 'number' ? row[colIdx].value as number : Number(row[colIdx]?.value) || 0,
-      }))
-      const color = props.chart.colorScheme[seriesIdx % props.chart.colorScheme.length]
-      return {
-        label: getHeaderName(colIdx),
-        data,
-        backgroundColor: color,
+        backgroundColor: color + '99',
         borderColor: color,
-        borderWidth: 1,
+        borderWidth: 2,
+        fill: props.chart.chartType === 'area',
+        tension: props.chart.chartType === 'line' || props.chart.chartType === 'area' ? 0.3 : 0,
       }
     })
+
+  if (datasets.length === 0) return null
+
+  if (props.chart.chartType === 'scatter') {
+    const scatterDatasets = ds.seriesRefs
+      .filter(sref => sref.refString)
+      .map((sref, seriesIdx) => {
+        const vals = ss.getChartRefValues(sref.refString)
+        let name = 'Series ' + (seriesIdx + 1)
+        let numVals: number[]
+
+        if (useHeader && vals.length > 0) {
+          name = vals[0] != null ? String(vals[0]) : name
+          numVals = vals.slice(1).map(v => typeof v === 'number' ? v : (Number(v) || 0))
+        } else {
+          numVals = vals.map(v => typeof v === 'number' ? v : (Number(v) || 0))
+        }
+
+        const data = numVals.map((v, i) => ({
+          x: labels.length > i ? (Number(labels[i]) || i) : i,
+          y: v,
+        }))
+        const color = props.chart.colorScheme[seriesIdx % props.chart.colorScheme.length]
+        return {
+          label: name,
+          data,
+          backgroundColor: color,
+          borderColor: color,
+          borderWidth: 1,
+        }
+      })
     return { datasets: scatterDatasets }
   }
 
@@ -304,35 +375,30 @@ function onTypeChange(e: Event) {
   ss.updateChart(props.chart.id, { chartType: (e.target as HTMLSelectElement).value as ChartObject['chartType'] })
 }
 
-function onTableChange(e: Event) {
-  const tableId = (e.target as HTMLSelectElement).value
-  if (!tableId) {
-    ss.updateChart(props.chart.id, { dataSource: null })
-  } else {
-    ss.updateChart(props.chart.id, {
-      dataSource: { tableId, labelCol: 0, valueCols: [1], useHeader: true },
-    })
+function onRefFieldClick(mode: string) {
+  ss.startChartDataSelection(mode)
+}
+
+function onRefInput(mode: string, e: Event) {
+  const value = (e.target as HTMLInputElement).value
+  ss.setChartDataRef(mode, value)
+}
+
+function clearRef(mode: string) {
+  ss.setChartDataRef(mode, '')
+  if (ss.chartSelectionMode.value === mode) {
+    ss.stopChartDataSelection()
   }
 }
 
-function onLabelColChange(e: Event) {
+function onHeaderToggle(e: Event) {
+  const checked = (e.target as HTMLInputElement).checked
   const ds = props.chart.dataSource
-  if (!ds) return
-  ss.updateChart(props.chart.id, {
-    dataSource: { ...ds, labelCol: Number((e.target as HTMLSelectElement).value) },
-  })
-}
-
-function onValueColToggle(colIdx: number, checked: boolean) {
-  const ds = props.chart.dataSource
-  if (!ds) return
-  let cols = [...ds.valueCols]
-  if (checked && !cols.includes(colIdx)) cols.push(colIdx)
-  else if (!checked) cols = cols.filter(c => c !== colIdx)
-  if (cols.length === 0) return // keep at least one
-  ss.updateChart(props.chart.id, {
-    dataSource: { ...ds, valueCols: cols },
-  })
+  if (ds) {
+    ss.updateChart(props.chart.id, {
+      dataSource: { ...ds, useHeader: checked },
+    })
+  }
 }
 
 function onLegendChange(e: Event) {
@@ -538,17 +604,135 @@ function onResizeEnd() {
 .chart-config {
   position: absolute;
   top: 0;
-  right: -220px;
-  width: 210px;
+  right: -240px;
+  width: 230px;
   background: var(--bg-primary);
   border: 1px solid var(--border-color);
   border-radius: 8px;
   padding: 8px;
   box-shadow: var(--shadow-md);
   z-index: 20;
-  max-height: 400px;
+  max-height: 480px;
   overflow-y: auto;
   font-size: 11px;
+}
+
+.config-section {
+  margin-bottom: 8px;
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: 6px;
+}
+
+.config-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-weight: 600;
+  color: var(--text-muted);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 4px;
+}
+
+.add-series-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-secondary);
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+  transition: background 0.15s, color 0.15s;
+
+  &:hover {
+    background: var(--accent-color);
+    color: white;
+    border-color: var(--accent-color);
+  }
+}
+
+.ref-field {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 4px;
+  border: 1px solid var(--border-color);
+  border-radius: 5px;
+  background: var(--bg-secondary);
+  margin-bottom: 4px;
+  cursor: text;
+  transition: border-color 0.15s, box-shadow 0.15s;
+
+  &:hover {
+    border-color: var(--text-muted);
+  }
+
+  &.picking {
+    background: var(--bg-primary);
+  }
+}
+
+.ref-color-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.ref-input {
+  flex: 1;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: 11px;
+  font-family: 'SF Mono', 'Menlo', 'Monaco', monospace;
+  color: var(--text-primary);
+  padding: 0;
+  min-width: 0;
+
+  &::placeholder {
+    color: var(--text-muted);
+    font-family: inherit;
+    font-size: 10px;
+  }
+}
+
+.ref-clear {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 13px;
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+  line-height: 1;
+  transition: background 0.15s, color 0.15s;
+
+  &:hover {
+    background: var(--danger-color-alpha);
+    color: var(--danger-color);
+  }
+}
+
+.ref-empty-hint {
+  font-size: 10px;
+  color: var(--text-muted);
+  text-align: center;
+  padding: 4px;
 }
 
 .config-row {
@@ -580,25 +764,10 @@ function onResizeEnd() {
   }
 }
 
-.value-cols {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  max-height: 120px;
-  overflow-y: auto;
-}
-
-.value-col-check {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-weight: normal !important;
-  color: var(--text-primary) !important;
-  font-size: 11px;
-  flex: unset !important;
-  padding-top: 0 !important;
-
-  input { margin: 0; }
+.config-hint {
+  font-size: 10px;
+  color: var(--text-muted);
+  padding-top: 3px;
 }
 
 /* Resize handles */
