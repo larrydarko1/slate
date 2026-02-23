@@ -704,20 +704,34 @@ export function useSpreadsheet() {
         }
     }
 
+    /** Token returned by getFormulaTokens – may be a single cell or a range */
+    interface FormulaToken {
+        text: string
+        isRef: boolean
+        color?: string
+        tableId?: string
+        col?: number
+        row?: number
+        /** If the reference is a range (A1:C5), these hold the end coordinates */
+        endCol?: number
+        endRow?: number
+        isRange?: boolean
+    }
+
     /**
-     * Parse the current editValue to extract cell references and assign colors.
-     * Returns an array of { refString, color, startIdx, endIdx } for display.
-     * This re-parses also when user edits manually so badges stay in sync.
+     * Parse a formula string to extract cell references and assign colors.
+     * If no explicit formula is provided, uses the current editValue.
+     * Supports single-cell refs (A1), ranges (A1:C5), cross-table and cross-canvas refs.
      */
-    function getFormulaTokens(): Array<{ text: string; isRef: boolean; color?: string; tableId?: string; col?: number; row?: number }> {
-        const val = editValue.value
+    function getFormulaTokens(formulaOverride?: string): FormulaToken[] {
+        const val = formulaOverride ?? editValue.value
         if (!val.startsWith('=')) return [{ text: val, isRef: false }]
 
         const body = val.substring(1) // strip '='
-        const tokens: Array<{ text: string; isRef: boolean; color?: string; tableId?: string; col?: number; row?: number }> = []
-        // Match cell references: optional 'Name':: prefix(es) and A1-style ref
-        // Pattern: (('...'|\w+)::)* [A-Z]+[0-9]+
-        const refRegex = /(?:(?:'[^']*'|\w+)::)*(?:(?:'[^']*'|\w+)::)?[A-Z]+\d+/g
+        const tokens: FormulaToken[] = []
+        // Match cell references: optional 'Name':: prefix(es) and A1-style ref, with optional :A1 range suffix
+        // Pattern: (('...'|\w+)::)* [A-Z]+[0-9]+ (:[A-Z]+[0-9]+)?
+        const refRegex = /(?:(?:'[^']*'|\w+)::)*(?:(?:'[^']*'|\w+)::)?[A-Z]+\d+(?::[A-Z]+\d+)?/g
         let lastIndex = 0
         let colorIdx = 0
         let match: RegExpExecArray | null
@@ -728,7 +742,7 @@ export function useSpreadsheet() {
                 tokens.push({ text: body.substring(lastIndex, match.index), isRef: false })
             }
             const refText = match[0]
-            // Try to resolve which cell this ref points to
+            // Try to resolve which cell / range this ref points to
             const resolved = resolveRefString(refText)
             const color = REF_COLORS[colorIdx % REF_COLORS.length]
             tokens.push({
@@ -738,6 +752,9 @@ export function useSpreadsheet() {
                 tableId: resolved?.tableId,
                 col: resolved?.col,
                 row: resolved?.row,
+                endCol: resolved?.endCol,
+                endRow: resolved?.endRow,
+                isRange: resolved?.isRange,
             })
             colorIdx++
             lastIndex = match.index + match[0].length
@@ -748,22 +765,32 @@ export function useSpreadsheet() {
         return tokens
     }
 
-    /** Resolve a reference string like 'Table 1'::A1 or A1 to table/col/row */
-    function resolveRefString(refText: string): { tableId: string; col: number; row: number } | null {
+    /** Resolve a reference string like 'Table 1'::A1, A1:C5, or 'Canvas'::'Table'::A1:B3 */
+    function resolveRefString(refText: string): { tableId: string; col: number; row: number; endCol?: number; endRow?: number; isRange?: boolean } | null {
         if (!activeCell.value) return null
 
-        // Split on :: to separate qualifiers from the cell ref
+        // Split on :: to separate qualifiers from the cell ref part
         const parts = refText.split('::')
         const cellPart = parts[parts.length - 1]
-        const m = cellPart.match(/^([A-Z]+)(\d+)$/)
-        if (!m) return null
 
-        const col = columnLetterToIndex(m[1])
-        const row = parseInt(m[2]) - 1
+        // Try range first: A1:C5
+        const rangeMatch = cellPart.match(/^([A-Z]+)(\d+):([A-Z]+)(\d+)$/)
+        // Single cell: A1
+        const singleMatch = !rangeMatch ? cellPart.match(/^([A-Z]+)(\d+)$/) : null
+
+        if (!rangeMatch && !singleMatch) return null
+
+        const col = columnLetterToIndex(rangeMatch ? rangeMatch[1] : singleMatch![1])
+        const row = parseInt(rangeMatch ? rangeMatch[2] : singleMatch![2]) - 1
+        const endCol = rangeMatch ? columnLetterToIndex(rangeMatch[3]) : undefined
+        const endRow = rangeMatch ? parseInt(rangeMatch[4]) - 1 : undefined
+        const isRange = !!rangeMatch
+
+        const buildResult = (tableId: string) => ({ tableId, col, row, endCol, endRow, isRange })
 
         if (parts.length === 1) {
             // Same table
-            return { tableId: activeCell.value.tableId, col, row }
+            return buildResult(activeCell.value.tableId)
         }
 
         const unquote = (s: string) => s.startsWith("'") && s.endsWith("'") ? s.slice(1, -1) : s
@@ -773,7 +800,7 @@ export function useSpreadsheet() {
             const tableName = unquote(parts[0])
             const t = findTableByName(tableName)
             if (!t) return null
-            return { tableId: t.id, col, row }
+            return buildResult(t.id)
         }
 
         if (parts.length === 3) {
@@ -782,7 +809,7 @@ export function useSpreadsheet() {
             const tableName = unquote(parts[1])
             const t = findTableByName(tableName, canvasName)
             if (!t) return null
-            return { tableId: t.id, col, row }
+            return buildResult(t.id)
         }
 
         return null
@@ -791,13 +818,48 @@ export function useSpreadsheet() {
     /**
      * Get all cells currently referenced in the formula, with their assigned colors.
      * Used by the table component to draw colored outlines.
+     *
+     * Works in two modes:
+     *  1. During editing: parses the editValue formula
+     *  2. When a formula cell is selected (not editing): parses the cell's stored formula
+     *
+     * Ranges (e.g. A1:C5) are expanded into individual cell highlights.
      */
     function getFormulaHighlights(): Array<{ tableId: string; col: number; row: number; color: string }> {
-        if (!isEditing.value || !editValue.value.startsWith('=')) return []
-        const tokens = getFormulaTokens()
-        return tokens
-            .filter(t => t.isRef && t.tableId != null && t.col != null && t.row != null)
-            .map(t => ({ tableId: t.tableId!, col: t.col!, row: t.row!, color: t.color! }))
+        let tokens: FormulaToken[]
+
+        if (isEditing.value && editValue.value.startsWith('=')) {
+            // Mode 1: currently editing a formula
+            tokens = getFormulaTokens()
+        } else if (!isEditing.value && activeCell.value) {
+            // Mode 2: a formula cell is selected (not editing)
+            const cell = getCell(activeCell.value.tableId, activeCell.value.col, activeCell.value.row)
+            if (!cell?.formula) return []
+            tokens = getFormulaTokens('=' + cell.formula)
+        } else {
+            return []
+        }
+
+        const highlights: Array<{ tableId: string; col: number; row: number; color: string }> = []
+        for (const t of tokens) {
+            if (!t.isRef || t.tableId == null || t.col == null || t.row == null) continue
+            const color = t.color!
+            if (t.isRange && t.endCol != null && t.endRow != null) {
+                // Expand range into individual cells
+                const minC = Math.min(t.col, t.endCol)
+                const maxC = Math.max(t.col, t.endCol)
+                const minR = Math.min(t.row, t.endRow)
+                const maxR = Math.max(t.row, t.endRow)
+                for (let r = minR; r <= maxR; r++) {
+                    for (let c = minC; c <= maxC; c++) {
+                        highlights.push({ tableId: t.tableId!, col: c, row: r, color })
+                    }
+                }
+            } else {
+                highlights.push({ tableId: t.tableId!, col: t.col, row: t.row, color })
+            }
+        }
+        return highlights
     }
 
     /** Toggle formula mode on/off */

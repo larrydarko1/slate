@@ -599,7 +599,7 @@ function onResizeMove(e: MouseEvent) {
   if (!resizeState) return
   const zoom = ss.canvasZoom.value
   const dx = (e.clientX - resizeState.startX) / zoom
-  const newW = Math.max(50, resizeState.origWidth + dx)
+  const newW = Math.max(10, resizeState.origWidth + dx)
   props.table.columns[resizeState.colIdx].width = newW
 }
 

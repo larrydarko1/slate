@@ -114,10 +114,26 @@ const displayText = computed(() => {
   return ss.getRawValue(activeCell.value.tableId, activeCell.value.col, activeCell.value.row)
 })
 
-const formulaTokens = computed(() => ss.getFormulaTokens())
+const formulaTokens = computed(() => {
+  if (ss.isEditing.value) return ss.getFormulaTokens()
+  // When not editing, parse the stored formula of the selected cell
+  if (activeCell.value && hasFormula.value) {
+    const cell = ss.getCell(activeCell.value.tableId, activeCell.value.col, activeCell.value.row)
+    if (cell?.formula) return ss.getFormulaTokens('=' + cell.formula)
+  }
+  return []
+})
 
 const showRichOverlay = computed(() => {
-  return ss.isEditing.value && ss.editValue.value.startsWith('=') && formulaTokens.value.some(t => t.isRef)
+  // Show colored badges when editing a formula OR when viewing a formula cell
+  if (ss.isEditing.value && ss.editValue.value.startsWith('=') && formulaTokens.value.some(t => t.isRef)) {
+    return true
+  }
+  // Show overlay for selected formula cells (not editing)
+  if (!ss.isEditing.value && hasFormula.value && formulaTokens.value.some(t => t.isRef)) {
+    return true
+  }
+  return false
 })
 
 function onFocus() {
