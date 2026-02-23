@@ -1,7 +1,7 @@
 {
   "name": "slate",
   "private": true,
-  "version": "1.1.9",
+  "version": "1.2.0",
   "type": "module",
   "main": "electron/main.cjs",
   "scripts": {
@@ -45,6 +45,16 @@
     "directories": {
       "output": "dist-electron"
     },
+    "fileAssociations": [
+      {
+        "ext": "slate",
+        "name": "Slate Spreadsheet",
+        "description": "Slate Spreadsheet File",
+        "mimeType": "application/x-slate",
+        "role": "Editor",
+        "icon": "build/icon"
+      }
+    ],
     "files": [
       "dist/**/*",
       "electron/**/*",

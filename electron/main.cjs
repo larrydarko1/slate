@@ -6,6 +6,27 @@ const fsSync = require('fs');
 const { pathToFileURL } = require('url');
 
 let mainWindow = null;
+let fileToOpen = null; // File path passed via CLI args or open-file event
+
+// ── macOS: Handle open-file event (double-click .slate in Finder) ──
+// This fires BEFORE app is ready when launching via file association,
+// and AFTER ready when the app is already running.
+app.on('open-file', (event, filePath) => {
+    event.preventDefault();
+    if (mainWindow) {
+        // App is already running — send file to renderer
+        mainWindow.webContents.send('file:open-external', filePath);
+        if (mainWindow.isMinimized()) mainWindow.restore();
+        mainWindow.focus();
+    } else {
+        // App not yet ready — store for later
+        fileToOpen = filePath;
+    }
+});
+
+// ── Windows/Linux: Check CLI args for .slate file ──
+const cliFile = process.argv.find(arg => arg.endsWith('.slate') && fsSync.existsSync(arg));
+if (cliFile) fileToOpen = cliFile;
 
 function createWindow() {
     // Set app icon based on platform
@@ -73,6 +94,11 @@ function createWindow() {
     // Show window when ready
     mainWindow.once('ready-to-show', () => {
         mainWindow.show();
+        // If a file was queued to open (via file association), send it now
+        if (fileToOpen) {
+            mainWindow.webContents.send('file:open-external', fileToOpen);
+            fileToOpen = null;
+        }
     });
 
     mainWindow.on('closed', () => {
@@ -80,16 +106,32 @@ function createWindow() {
     });
 }
 
-// Initialize app
-app.whenReady().then(() => {
-    createWindow();
-
-    app.on('activate', () => {
-        if (BrowserWindow.getAllWindows().length === 0) {
-            createWindow();
+// ── Single-instance lock (required for second-instance event on Win/Linux) ──
+const gotLock = app.requestSingleInstanceLock();
+if (!gotLock) {
+    app.quit();
+} else {
+    // Handle second-instance (Windows/Linux: user double-clicks another .slate file while app is running)
+    app.on('second-instance', (_event, argv) => {
+        const file = argv.find(arg => arg.endsWith('.slate') && fsSync.existsSync(arg));
+        if (file && mainWindow) {
+            mainWindow.webContents.send('file:open-external', file);
+            if (mainWindow.isMinimized()) mainWindow.restore();
+            mainWindow.focus();
         }
     });
-});
+
+    // Initialize app
+    app.whenReady().then(() => {
+        createWindow();
+
+        app.on('activate', () => {
+            if (BrowserWindow.getAllWindows().length === 0) {
+                createWindow();
+            }
+        });
+    });
+}
 
 // Quit when all windows closed (except macOS)
 app.on('window-all-closed', () => {

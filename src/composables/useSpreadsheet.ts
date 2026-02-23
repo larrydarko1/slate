@@ -9,6 +9,82 @@ export function useSpreadsheet() {
     const canvases = ref<Canvas[]>([createDefaultCanvas('Canvas 1')])
     const activeCanvasId = ref<string>(canvases.value[0].id)
 
+    // ── Undo / Redo ──
+    const MAX_UNDO = 100
+    const undoStack: string[] = []
+    const redoStack: string[] = []
+    const canUndo = ref(false)
+    const canRedo = ref(false)
+
+    /** Deep-clone canvases state as a JSON string for the undo stack */
+    function snapshotState(): string {
+        return JSON.stringify(canvases.value)
+    }
+
+    /** Restore canvases from a JSON snapshot */
+    function restoreState(snapshot: string) {
+        canvases.value = JSON.parse(snapshot) as Canvas[]
+        // Ensure activeCanvasId still exists
+        if (!canvases.value.find(c => c.id === activeCanvasId.value)) {
+            activeCanvasId.value = canvases.value[0].id
+        }
+        recalculate()
+    }
+
+    /**
+     * Save current state to undo stack before a mutation.
+     * Call this at the beginning of any function that modifies data.
+     * Nested calls are ignored so compound operations record only one snapshot.
+     */
+    let undoNesting = 0
+    function pushUndo() {
+        if (undoNesting > 0) return  // nested mutation — already captured
+        undoNesting++
+        undoStack.push(snapshotState())
+        if (undoStack.length > MAX_UNDO) undoStack.shift()
+        // Any new mutation clears the redo stack
+        redoStack.length = 0
+        canUndo.value = undoStack.length > 0
+        canRedo.value = false
+        // Reset nesting after microtask so all sync mutations in the same call chain are grouped
+        queueMicrotask(() => { undoNesting = 0 })
+    }
+
+    /**
+     * Push undo only once for the start of a continuous operation (drag/resize).
+     * Returns true if it pushed (first call), false on subsequent calls.
+     * Call `endUndoBatch()` when the drag/resize ends.
+     */
+    let undoBatchActive = false
+    function startUndoBatch() {
+        if (!undoBatchActive) {
+            pushUndo()
+            undoBatchActive = true
+        }
+    }
+    function endUndoBatch() {
+        undoBatchActive = false
+    }
+
+    function undo() {
+        if (undoStack.length === 0) return
+        // Save current state to redo
+        redoStack.push(snapshotState())
+        const prev = undoStack.pop()!
+        restoreState(prev)
+        canUndo.value = undoStack.length > 0
+        canRedo.value = redoStack.length > 0
+    }
+
+    function redo() {
+        if (redoStack.length === 0) return
+        undoStack.push(snapshotState())
+        const next = redoStack.pop()!
+        restoreState(next)
+        canUndo.value = undoStack.length > 0
+        canRedo.value = redoStack.length > 0
+    }
+
     // Computed references that point into the active canvas
     const activeCanvas = computed(() =>
         canvases.value.find(c => c.id === activeCanvasId.value) ?? canvases.value[0]
@@ -81,6 +157,7 @@ export function useSpreadsheet() {
 
     function addCanvas() {
         if (canvases.value.length >= MAX_CANVASES) return
+        pushUndo()
         canvasCount++
         const c = createDefaultCanvas(`Canvas ${canvasCount}`)
         canvases.value.push(c)
@@ -89,6 +166,7 @@ export function useSpreadsheet() {
 
     function removeCanvas(canvasId: string) {
         if (canvases.value.length <= 1) return // always keep at least one
+        pushUndo()
         const idx = canvases.value.findIndex(c => c.id === canvasId)
         if (idx < 0) return
         canvases.value.splice(idx, 1)
@@ -101,6 +179,7 @@ export function useSpreadsheet() {
     }
 
     function renameCanvas(canvasId: string, name: string) {
+        pushUndo()
         const c = canvases.value.find(cv => cv.id === canvasId)
         if (c) c.name = name
     }
@@ -177,6 +256,7 @@ export function useSpreadsheet() {
     // ── Table CRUD ──
 
     function addTable() {
+        pushUndo()
         tableCount++
         const offsetIdx = activeCanvas.value.tables.length
         const zoom = canvasZoom.value
@@ -188,6 +268,7 @@ export function useSpreadsheet() {
     }
 
     function removeTable(tableId: string) {
+        pushUndo()
         const canvas = activeCanvas.value
         canvas.tables = canvas.tables.filter(t => t.id !== tableId)
         if (activeCell.value?.tableId === tableId) activeCell.value = null
@@ -209,11 +290,13 @@ export function useSpreadsheet() {
     }
 
     function renameTable(tableId: string, name: string) {
+        pushUndo()
         const t = findTable(tableId)
         if (t) t.name = name
     }
 
     function moveTable(tableId: string, x: number, y: number) {
+        startUndoBatch()
         const t = findTable(tableId)
         if (t) { t.x = x; t.y = y }
     }
@@ -221,12 +304,14 @@ export function useSpreadsheet() {
     // ── Row / Column operations ──
 
     function addRow(tableId: string) {
+        pushUndo()
         const t = findTable(tableId)
         if (!t) return
         t.rows.push(t.columns.map(() => createEmptyCell()))
     }
 
     function addColumn(tableId: string) {
+        pushUndo()
         const t = findTable(tableId)
         if (!t) return
         t.columns.push({ id: generateId('col'), width: 120 })
@@ -236,6 +321,7 @@ export function useSpreadsheet() {
     function deleteRow(tableId: string, rowIdx: number) {
         const t = findTable(tableId)
         if (!t || t.rows.length <= 1) return
+        pushUndo()
         // Remove merges that collapse to nothing, shrink others
         t.mergedRegions = t.mergedRegions
             .map(m => {
@@ -256,6 +342,7 @@ export function useSpreadsheet() {
     function deleteColumn(tableId: string, colIdx: number) {
         const t = findTable(tableId)
         if (!t || t.columns.length <= 1) return
+        pushUndo()
         // Remove merges that collapse to nothing, shrink others
         t.mergedRegions = t.mergedRegions
             .map(m => {
@@ -277,6 +364,7 @@ export function useSpreadsheet() {
     function insertRowAt(tableId: string, rowIdx: number) {
         const t = findTable(tableId)
         if (!t) return
+        pushUndo()
         // Shift merged regions
         t.mergedRegions = t.mergedRegions.map(m => {
             if (rowIdx <= m.startRow) return { ...m, startRow: m.startRow + 1, endRow: m.endRow + 1 }
@@ -290,6 +378,7 @@ export function useSpreadsheet() {
     function insertColumnAt(tableId: string, colIdx: number) {
         const t = findTable(tableId)
         if (!t) return
+        pushUndo()
         // Shift merged regions
         t.mergedRegions = t.mergedRegions.map(m => {
             if (colIdx <= m.startCol) return { ...m, startCol: m.startCol + 1, endCol: m.endCol + 1 }
@@ -315,6 +404,7 @@ export function useSpreadsheet() {
         const count = sr.endRow - sr.startRow + 1
         // Don't delete all rows
         if (count >= t.rows.length) return
+        pushUndo()
         // Delete from bottom to top
         for (let r = sr.endRow; r >= sr.startRow; r--) {
             deleteRow(sr.tableId, r)
@@ -341,6 +431,7 @@ export function useSpreadsheet() {
         const count = sr.endCol - sr.startCol + 1
         // Don't delete all columns
         if (count >= t.columns.length) return
+        pushUndo()
         // Delete from right to left
         for (let c = sr.endCol; c >= sr.startCol; c--) {
             deleteColumn(sr.tableId, c)
@@ -362,6 +453,7 @@ export function useSpreadsheet() {
     }
 
     function setCellValue(tableId: string, col: number, row: number, raw: string) {
+        pushUndo()
         const t = findTable(tableId)
         if (!t) return
 
@@ -442,6 +534,7 @@ export function useSpreadsheet() {
     function setCellType(tableId: string, col: number, row: number, newType: CellDataType) {
         const cell = getCell(tableId, col, row)
         if (!cell) return
+        pushUndo()
 
         cell.cellType = newType
 
@@ -475,6 +568,7 @@ export function useSpreadsheet() {
 
     /** Set format properties on a single cell */
     function setCellFormat(tableId: string, col: number, row: number, fmt: Partial<import('../types/spreadsheet').CellFormat>) {
+        pushUndo()
         const cell = getCell(tableId, col, row)
         if (!cell) return
         cell.format = { ...cell.format, ...fmt }
@@ -484,6 +578,7 @@ export function useSpreadsheet() {
     function setSelectionFormat(fmt: Partial<import('../types/spreadsheet').CellFormat>) {
         const sr = getNormalizedSelection()
         if (!sr) return
+        pushUndo()
         for (let r = sr.startRow; r <= sr.endRow; r++) {
             for (let c = sr.startCol; c <= sr.endCol; c++) {
                 setCellFormat(sr.tableId, c, r, fmt)
@@ -680,6 +775,7 @@ export function useSpreadsheet() {
 
     function clearActiveCell() {
         if (!activeCell.value) return
+        pushUndo()
         // If there's a multi-cell selection, clear all selected cells
         const sr = getNormalizedSelection()
         if (sr && (sr.startCol !== sr.endCol || sr.startRow !== sr.endRow)) {
@@ -733,9 +829,12 @@ export function useSpreadsheet() {
     }
 
     /**
-     * Insert a cell reference at the end of the current edit value.
+     * Insert a cell reference into the current formula being edited.
      * Called when clicking a cell while in formula mode.
-     * Automatically builds a SUM() wrapper when clicking multiple cells.
+     * Appends cell refs with '+' as the default operator, so clicking
+     * multiple cells builds expressions like "=A1+B2+C3".
+     * The user can type operators (+, -, *, /, parentheses) in the formula
+     * bar between clicks to build complex formulas like "=(A1+B2)*(C3)/A1".
      */
     function insertCellReference(tableId: string, col: number, row: number) {
         if (!isEditing.value || !formulaMode.value) return
@@ -747,12 +846,23 @@ export function useSpreadsheet() {
         const color = REF_COLORS[formulaRefs.value.length % REF_COLORS.length]
         formulaRefs.value.push({ tableId, col, row, refString: refStr, color })
 
-        // Rebuild the formula from the collected refs
-        const refs = formulaRefs.value.map(r => r.refString)
-        if (refs.length === 1) {
-            editValue.value = '=' + refs[0]
+        let current = editValue.value
+        // If empty or just '=', start the formula
+        if (!current || current === '=') {
+            editValue.value = '=' + refStr
+            return
+        }
+
+        // Look at the last non-whitespace character to decide if we need an operator
+        const trimmed = current.trimEnd()
+        const lastChar = trimmed[trimmed.length - 1]
+
+        // If the last char is an operator or opening paren, just append the ref
+        if (lastChar && '+-*/^(,'.includes(lastChar)) {
+            editValue.value = current + refStr
         } else {
-            editValue.value = '=SUM(' + refs.join(',') + ')'
+            // Auto-insert '+' between consecutive references / values
+            editValue.value = current + '+' + refStr
         }
     }
 
@@ -929,6 +1039,7 @@ export function useSpreadsheet() {
     // ── Cell Notes ──
 
     function setCellNote(tableId: string, col: number, row: number, note: string) {
+        pushUndo()
         const cell = getCell(tableId, col, row)
         if (!cell) return
         cell.note = note || undefined
@@ -940,6 +1051,7 @@ export function useSpreadsheet() {
     }
 
     function removeCellNote(tableId: string, col: number, row: number) {
+        pushUndo()
         const cell = getCell(tableId, col, row)
         if (cell) cell.note = undefined
     }
@@ -1010,6 +1122,7 @@ export function useSpreadsheet() {
      */
     async function pasteCells() {
         if (!activeCell.value) return
+        pushUndo()
         const { tableId, col: startCol, row: startRow } = activeCell.value
         const t = findTable(tableId)
         if (!t) return
@@ -1103,6 +1216,7 @@ export function useSpreadsheet() {
     }
 
     function mergeCells(tableId: string, startCol: number, startRow: number, endCol: number, endRow: number) {
+        pushUndo()
         const t = findTable(tableId)
         if (!t) return
         if (startCol === endCol && startRow === endRow) return // single cell, nothing to merge
@@ -1132,6 +1246,7 @@ export function useSpreadsheet() {
     }
 
     function unmergeCells(tableId: string, col: number, row: number) {
+        pushUndo()
         const t = findTable(tableId)
         if (!t) return
         const idx = t.mergedRegions.findIndex(
@@ -1368,6 +1483,7 @@ export function useSpreadsheet() {
     // ── TextBox CRUD ──
 
     function addTextBox() {
+        pushUndo()
         const canvas = activeCanvas.value
         const zoom = canvasZoom.value
         const offsetIdx = canvas.textBoxes.length
@@ -1381,17 +1497,20 @@ export function useSpreadsheet() {
     }
 
     function removeTextBox(id: string) {
+        pushUndo()
         const canvas = activeCanvas.value
         canvas.textBoxes = canvas.textBoxes.filter(tb => tb.id !== id)
         if (activeTextBoxId.value === id) activeTextBoxId.value = null
     }
 
     function moveTextBox(id: string, x: number, y: number) {
+        startUndoBatch()
         const tb = findTextBox(id)
         if (tb) { tb.x = x; tb.y = y }
     }
 
     function resizeTextBox(id: string, width: number, height: number) {
+        startUndoBatch()
         const tb = findTextBox(id)
         if (tb) {
             tb.width = Math.max(60, width)
@@ -1400,6 +1519,7 @@ export function useSpreadsheet() {
     }
 
     function updateTextBox(id: string, updates: Partial<TextBox>) {
+        pushUndo()
         const tb = findTextBox(id)
         if (tb) Object.assign(tb, updates)
     }
@@ -1421,6 +1541,7 @@ export function useSpreadsheet() {
     }
 
     function addChart() {
+        pushUndo()
         const canvas = activeCanvas.value
         const zoom = canvasZoom.value
         const ox = canvasOffset.value.x
@@ -1436,17 +1557,20 @@ export function useSpreadsheet() {
     }
 
     function removeChart(chartId: string) {
+        pushUndo()
         const canvas = activeCanvas.value
         canvas.charts = canvas.charts.filter(ch => ch.id !== chartId)
         if (activeChartId.value === chartId) activeChartId.value = null
     }
 
     function moveChart(chartId: string, x: number, y: number) {
+        startUndoBatch()
         const ch = findChart(chartId)
         if (ch) { ch.x = x; ch.y = y }
     }
 
     function resizeChart(chartId: string, width: number, height: number) {
+        startUndoBatch()
         const ch = findChart(chartId)
         if (ch) {
             ch.width = Math.max(200, width)
@@ -1455,6 +1579,7 @@ export function useSpreadsheet() {
     }
 
     function updateChart(id: string, updates: Partial<ChartObject>) {
+        pushUndo()
         const ch = findChart(id)
         if (ch) Object.assign(ch, updates)
     }
@@ -1962,6 +2087,12 @@ export function useSpreadsheet() {
         if (result.canceled || result.filePaths.length === 0) return false
 
         const filePath = result.filePaths[0]
+        return loadFileFromPath(filePath)
+    }
+
+    async function loadFileFromPath(filePath: string) {
+        if (!window.electronAPI) return false
+
         const readResult = await window.electronAPI.readFile(filePath)
 
         if (readResult.success && readResult.content) {
@@ -2146,7 +2277,16 @@ export function useSpreadsheet() {
         saveFile,
         saveAsFile,
         openFile,
+        loadFileFromPath,
         newFile,
+
+        // Undo / Redo
+        undo,
+        redo,
+        canUndo,
+        canRedo,
+        startUndoBatch,
+        endUndoBatch,
     }
 }
 

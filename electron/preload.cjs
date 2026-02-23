@@ -11,5 +11,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
     showOpenDialog: () => ipcRenderer.invoke('dialog:open'),
     writeFile: (filePath, content) => ipcRenderer.invoke('file:write', filePath, content),
     readFile: (filePath) => ipcRenderer.invoke('file:read', filePath),
+
+    // Listen for files opened via OS file association
+    onOpenFile: (callback) => {
+        ipcRenderer.on('file:open-external', (_event, filePath) => callback(filePath));
+    },
 });
 

@@ -590,6 +590,7 @@ function onDragMove(e: MouseEvent) {
 
 function onDragEnd() {
   dragState = null
+  ss.endUndoBatch()
   document.removeEventListener('mousemove', onDragMove)
   document.removeEventListener('mouseup', onDragEnd)
 }
@@ -599,6 +600,7 @@ function onDragEnd() {
 let resizeState: { colIdx: number; startX: number; origWidth: number } | null = null
 
 function startColResize(ci: number, e: MouseEvent) {
+  ss.startUndoBatch()
   resizeState = { colIdx: ci, startX: e.clientX, origWidth: props.table.columns[ci].width }
   document.addEventListener('mousemove', onResizeMove)
   document.addEventListener('mouseup', onResizeEnd)
@@ -614,6 +616,7 @@ function onResizeMove(e: MouseEvent) {
 
 function onResizeEnd() {
   resizeState = null
+  ss.endUndoBatch()
   document.removeEventListener('mousemove', onResizeMove)
   document.removeEventListener('mouseup', onResizeEnd)
 }

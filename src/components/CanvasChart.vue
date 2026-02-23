@@ -573,6 +573,7 @@ function onDragMove(e: MouseEvent) {
 
 function onDragEnd() {
   dragState = null
+  ss.endUndoBatch()
   document.removeEventListener('mousemove', onDragMove)
   document.removeEventListener('mouseup', onDragEnd)
 }
@@ -634,6 +635,7 @@ function onResizeMove(e: MouseEvent) {
 
 function onResizeEnd() {
   resizeState = null
+  ss.endUndoBatch()
   document.removeEventListener('mousemove', onResizeMove)
   document.removeEventListener('mouseup', onResizeEnd)
 }

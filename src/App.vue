@@ -73,6 +73,14 @@ const handleKeydown = (e: KeyboardEvent) => {
       e.preventDefault()
       ss.resetZoom()
       break
+    case 'z':
+      e.preventDefault()
+      if (e.shiftKey) {
+        ss.redo()
+      } else {
+        ss.undo()
+      }
+      break
   }
 }
 
@@ -81,6 +89,11 @@ onMounted(() => {
   if (ss.tables.value.length === 0) {
     ss.addTable()
   }
+
+  // Listen for files opened via OS file association (double-click .slate)
+  window.electronAPI?.onOpenFile((filePath: string) => {
+    ss.loadFileFromPath(filePath)
+  })
 })
 </script>
 
