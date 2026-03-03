@@ -330,6 +330,56 @@ export function useSpreadsheet() {
         for (const row of t.rows) row.push(createEmptyCell())
     }
 
+    /** Check if a specific row is completely empty (no values, no formulas) */
+    function isRowEmpty(tableId: string, rowIdx: number): boolean {
+        const t = findTable(tableId)
+        if (!t || rowIdx < 0 || rowIdx >= t.rows.length) return false
+        return t.rows[rowIdx].every(cell => cell.value === null && !cell.formula)
+    }
+
+    /** Check if a specific column is completely empty (no values, no formulas) */
+    function isColumnEmpty(tableId: string, colIdx: number): boolean {
+        const t = findTable(tableId)
+        if (!t || colIdx < 0 || colIdx >= t.columns.length) return false
+        return t.rows.every(row => {
+            const cell = row[colIdx]
+            return cell.value === null && !cell.formula
+        })
+    }
+
+    /** Remove the last row if it is completely empty and there is more than 1 row. Returns true if removed. */
+    function removeLastRowIfEmpty(tableId: string): boolean {
+        const t = findTable(tableId)
+        if (!t || t.rows.length <= 1) return false
+        const lastIdx = t.rows.length - 1
+        if (!isRowEmpty(tableId, lastIdx)) return false
+        // Check merges involving the last row
+        const hasMerge = t.mergedRegions.some(m => lastIdx >= m.startRow && lastIdx <= m.endRow)
+        if (hasMerge) return false
+        t.rows.splice(lastIdx, 1)
+        if (activeCell.value?.tableId === tableId && activeCell.value.row >= t.rows.length) {
+            activeCell.value.row = t.rows.length - 1
+        }
+        return true
+    }
+
+    /** Remove the last column if it is completely empty and there is more than 1 column. Returns true if removed. */
+    function removeLastColumnIfEmpty(tableId: string): boolean {
+        const t = findTable(tableId)
+        if (!t || t.columns.length <= 1) return false
+        const lastIdx = t.columns.length - 1
+        if (!isColumnEmpty(tableId, lastIdx)) return false
+        // Check merges involving the last column
+        const hasMerge = t.mergedRegions.some(m => lastIdx >= m.startCol && lastIdx <= m.endCol)
+        if (hasMerge) return false
+        t.columns.splice(lastIdx, 1)
+        for (const row of t.rows) row.splice(lastIdx, 1)
+        if (activeCell.value?.tableId === tableId && activeCell.value.col >= t.columns.length) {
+            activeCell.value.col = t.columns.length - 1
+        }
+        return true
+    }
+
     function deleteRow(tableId: string, rowIdx: number) {
         const t = findTable(tableId)
         if (!t || t.rows.length <= 1) return
@@ -400,6 +450,129 @@ export function useSpreadsheet() {
         t.columns.splice(colIdx, 0, { id: generateId('col'), width: 120 })
         for (const row of t.rows) row.splice(colIdx, 0, createEmptyCell())
         recalculate()
+    }
+
+    /** Move a row from one index to another, updating merged regions. */
+    function reorderRow(tableId: string, fromIdx: number, toIdx: number) {
+        reorderRows(tableId, fromIdx, fromIdx, toIdx)
+    }
+
+    /**
+     * Move a contiguous block of rows [fromStart..fromEnd] so that the block
+     * ends up starting at position toIdx.  toIdx is expressed in the *original*
+     * index space (before the move).
+     */
+    function reorderRows(tableId: string, fromStart: number, fromEnd: number, toIdx: number) {
+        const t = findTable(tableId)
+        if (!t) return
+        const count = fromEnd - fromStart + 1
+        // Nothing to do if dropping inside the source range
+        if (toIdx >= fromStart && toIdx <= fromEnd) return
+        if (fromStart < 0 || fromEnd >= t.rows.length) return
+        if (toIdx < 0 || toIdx >= t.rows.length) return
+        pushUndo()
+        // Extract the block
+        const movedRows = t.rows.splice(fromStart, count)
+        // After removal, compute the adjusted insertion index
+        const insertAt = toIdx > fromStart ? toIdx - count + 1 : toIdx
+        t.rows.splice(insertAt, 0, ...movedRows)
+        // Remap merged region row indices
+        t.mergedRegions = t.mergedRegions.map(m => {
+            let sr = remapRowIdx(m.startRow, fromStart, fromEnd, insertAt)
+            let er = remapRowIdx(m.endRow, fromStart, fromEnd, insertAt)
+            if (sr > er) { const tmp = sr; sr = er; er = tmp }
+            return { ...m, startRow: sr, endRow: er }
+        })
+        // Update active cell
+        if (activeCell.value?.tableId === tableId) {
+            activeCell.value.row = remapRowIdx(activeCell.value.row, fromStart, fromEnd, insertAt)
+        }
+        // Update selection to follow the moved block
+        if (selectionRange.value?.tableId === tableId) {
+            const sr = selectionRange.value
+            sr.startRow = insertAt
+            sr.endRow = insertAt + count - 1
+        }
+        recalculate()
+    }
+
+    /** Helper: remap an index after moving block [fromStart..fromEnd] to insertAt */
+    function remapRowIdx(idx: number, fromStart: number, fromEnd: number, insertAt: number): number {
+        const count = fromEnd - fromStart + 1
+        if (idx >= fromStart && idx <= fromEnd) {
+            // Part of the moved block
+            return insertAt + (idx - fromStart)
+        }
+        // Not part of the moved block — figure out displacement
+        if (fromStart < insertAt) {
+            // Block moved down: indices between fromEnd+1..insertAt+count-1 shift up by count
+            if (idx > fromEnd && idx < insertAt + count) return idx - count
+        } else {
+            // Block moved up: indices between insertAt..fromStart-1 shift down by count
+            if (idx >= insertAt && idx < fromStart) return idx + count
+        }
+        return idx
+    }
+
+    /** Move a column from one index to another, updating merged regions. */
+    function reorderColumn(tableId: string, fromIdx: number, toIdx: number) {
+        reorderColumns(tableId, fromIdx, fromIdx, toIdx)
+    }
+
+    /**
+     * Move a contiguous block of columns [fromStart..fromEnd] so that the block
+     * ends up starting at position toIdx.  toIdx is expressed in the *original*
+     * index space (before the move).
+     */
+    function reorderColumns(tableId: string, fromStart: number, fromEnd: number, toIdx: number) {
+        const t = findTable(tableId)
+        if (!t) return
+        const count = fromEnd - fromStart + 1
+        if (toIdx >= fromStart && toIdx <= fromEnd) return
+        if (fromStart < 0 || fromEnd >= t.columns.length) return
+        if (toIdx < 0 || toIdx >= t.columns.length) return
+        pushUndo()
+        // Extract the column definitions
+        const movedCols = t.columns.splice(fromStart, count)
+        const insertAt = toIdx > fromStart ? toIdx - count + 1 : toIdx
+        t.columns.splice(insertAt, 0, ...movedCols)
+        // Move cell data in each row
+        for (const row of t.rows) {
+            const movedCells = row.splice(fromStart, count)
+            row.splice(insertAt, 0, ...movedCells)
+        }
+        // Remap merged region col indices
+        t.mergedRegions = t.mergedRegions.map(m => {
+            let sc = remapColIdx(m.startCol, fromStart, fromEnd, insertAt)
+            let ec = remapColIdx(m.endCol, fromStart, fromEnd, insertAt)
+            if (sc > ec) { const tmp = sc; sc = ec; ec = tmp }
+            return { ...m, startCol: sc, endCol: ec }
+        })
+        // Update active cell
+        if (activeCell.value?.tableId === tableId) {
+            activeCell.value.col = remapColIdx(activeCell.value.col, fromStart, fromEnd, insertAt)
+        }
+        // Update selection to follow the moved block
+        if (selectionRange.value?.tableId === tableId) {
+            const sr = selectionRange.value
+            sr.startCol = insertAt
+            sr.endCol = insertAt + count - 1
+        }
+        recalculate()
+    }
+
+    /** Helper: remap a column index after moving block [fromStart..fromEnd] to insertAt */
+    function remapColIdx(idx: number, fromStart: number, fromEnd: number, insertAt: number): number {
+        const count = fromEnd - fromStart + 1
+        if (idx >= fromStart && idx <= fromEnd) {
+            return insertAt + (idx - fromStart)
+        }
+        if (fromStart < insertAt) {
+            if (idx > fromEnd && idx < insertAt + count) return idx - count
+        } else {
+            if (idx >= insertAt && idx < fromStart) return idx + count
+        }
+        return idx
     }
 
     /**
@@ -2324,10 +2497,18 @@ export function useSpreadsheet() {
         addColumn,
         deleteRow,
         deleteColumn,
+        isRowEmpty,
+        isColumnEmpty,
+        removeLastRowIfEmpty,
+        removeLastColumnIfEmpty,
         deleteSelectedRows,
         deleteSelectedColumns,
         insertRowAt,
         insertColumnAt,
+        reorderRow,
+        reorderRows,
+        reorderColumn,
+        reorderColumns,
 
         // Cell
         getCell,

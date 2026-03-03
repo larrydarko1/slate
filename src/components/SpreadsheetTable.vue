@@ -43,7 +43,12 @@
               :key="col.id"
               :style="{ width: col.width + 'px', minWidth: col.width + 'px' }"
               class="col-header"
-              :class="{ 'col-selected': ss.isColInSelection(table.id, ci) }"
+              :class="{
+                'col-selected': ss.isColInSelection(table.id, ci),
+                'reorder-source': reorderColState.active && ci >= reorderColState.fromStart && ci <= reorderColState.fromEnd,
+                'reorder-drop-before': reorderColState.active && reorderColState.toIdx === ci && reorderColState.toIdx < reorderColState.fromStart,
+                'reorder-drop-after': reorderColState.active && reorderColState.toIdx === ci && reorderColState.toIdx > reorderColState.fromEnd,
+              }"
               @mousedown.stop="onColHeaderMouseDown(ci, $event)"
               @mouseover="onColHeaderMouseOver(ci)"
               @contextmenu.prevent="onColumnContextMenu(ci, $event)"
@@ -64,10 +69,23 @@
           </tr>
         </thead>
         <tbody>
-          <tr v-for="(row, ri) in table.rows" :key="ri">
+          <tr
+            v-for="(row, ri) in table.rows"
+            :key="ri"
+            :class="{
+              'reorder-row-source': reorderRowState.active && ri >= reorderRowState.fromStart && ri <= reorderRowState.fromEnd,
+              'reorder-row-drop-before': reorderRowState.active && reorderRowState.toIdx === ri && reorderRowState.toIdx < reorderRowState.fromStart,
+              'reorder-row-drop-after': reorderRowState.active && reorderRowState.toIdx === ri && reorderRowState.toIdx > reorderRowState.fromEnd,
+            }"
+          >
             <td
               class="row-header"
-              :class="{ 'row-selected': ss.isRowInSelection(table.id, ri) }"
+              :class="{
+                'row-selected': ss.isRowInSelection(table.id, ri),
+                'reorder-source': reorderRowState.active && ri >= reorderRowState.fromStart && ri <= reorderRowState.fromEnd,
+                'reorder-drop-before': reorderRowState.active && reorderRowState.toIdx === ri && reorderRowState.toIdx < reorderRowState.fromStart,
+                'reorder-drop-after': reorderRowState.active && reorderRowState.toIdx === ri && reorderRowState.toIdx > reorderRowState.fromEnd,
+              }"
               @mousedown.stop="onRowHeaderMouseDown(ri, $event)"
               @mouseover="onRowHeaderMouseOver(ri)"
               @contextmenu.prevent="onRowContextMenu(ri, $event)"
@@ -430,21 +448,89 @@ function onSelectionMouseUp() {
 
 let isDraggingRows = false
 
+// ── Row / Column reorder drag state ──
+const REORDER_DRAG_THRESHOLD = 5 // px before switching from selection to reorder
+
+const reorderRowState = ref<{ active: boolean; fromStart: number; fromEnd: number; toIdx: number; startY: number; startX: number; didMove: boolean }>({
+  active: false, fromStart: -1, fromEnd: -1, toIdx: -1, startY: 0, startX: 0, didMove: false,
+})
+const reorderColState = ref<{ active: boolean; fromStart: number; fromEnd: number; toIdx: number; startX: number; startY: number; didMove: boolean }>({
+  active: false, fromStart: -1, fromEnd: -1, toIdx: -1, startX: 0, startY: 0, didMove: false,
+})
+
 function onRowHeaderMouseDown(ri: number, e: MouseEvent) {
   // Right-click inside an existing multi-row selection: don't reset
   if (e.button === 2 && ss.isRowInSelection(props.table.id, ri)) return
   if (e.shiftKey) {
     ss.extendRowSelection(props.table.id, ri)
+    nextTick(() => tableEl.value?.focus())
+    return
+  }
+  // If clicking a row that's already part of a multi-row selection, preserve it for reorder
+  const sr = ss.getNormalizedSelection()
+  const t = props.table
+  const isMultiRowSelected = sr && sr.tableId === t.id && sr.startCol === 0 && sr.endCol === t.columns.length - 1 && sr.endRow > sr.startRow
+  const clickedInSelection = isMultiRowSelected && ri >= sr!.startRow && ri <= sr!.endRow
+
+  let fromStart: number, fromEnd: number
+  if (clickedInSelection) {
+    fromStart = sr!.startRow
+    fromEnd = sr!.endRow
   } else {
     ss.selectRow(props.table.id, ri)
-    isDraggingRows = true
-    document.addEventListener('mouseup', onSelectionMouseUp)
+    fromStart = ri
+    fromEnd = ri
   }
+  isDraggingRows = true
+  reorderRowState.value = { active: false, fromStart, fromEnd, toIdx: ri, startY: e.clientY, startX: e.clientX, didMove: false }
+  document.addEventListener('mousemove', onRowReorderMove)
+  document.addEventListener('mouseup', onRowReorderEnd)
   nextTick(() => tableEl.value?.focus())
 }
 
+function onRowReorderMove(e: MouseEvent) {
+  const st = reorderRowState.value
+  if (!st.didMove) {
+    const dx = Math.abs(e.clientX - st.startX)
+    const dy = Math.abs(e.clientY - st.startY)
+    if (dy < REORDER_DRAG_THRESHOLD && dx < REORDER_DRAG_THRESHOLD) return
+    st.didMove = true
+    st.active = true
+  }
+  if (!st.active) return
+  // Find which row the mouse is over
+  const gridWrapper = tableEl.value?.querySelector('.table-grid-wrapper')
+  if (!gridWrapper) return
+  const rows = gridWrapper.querySelectorAll('tbody tr')
+  let targetIdx = st.fromStart
+  for (let i = 0; i < props.table.rows.length; i++) {
+    const rect = rows[i]?.getBoundingClientRect()
+    if (rect) {
+      const midY = rect.top + rect.height / 2
+      if (e.clientY < midY) { targetIdx = i; break }
+      targetIdx = i
+    }
+  }
+  // Don't allow dropping inside the source range (it's a no-op)
+  if (targetIdx > st.fromStart && targetIdx < st.fromEnd) {
+    targetIdx = st.fromStart
+  }
+  st.toIdx = targetIdx
+}
+
+function onRowReorderEnd() {
+  const st = reorderRowState.value
+  if (st.active && !(st.toIdx >= st.fromStart && st.toIdx <= st.fromEnd)) {
+    ss.reorderRows(props.table.id, st.fromStart, st.fromEnd, st.toIdx)
+  }
+  reorderRowState.value = { active: false, fromStart: -1, fromEnd: -1, toIdx: -1, startY: 0, startX: 0, didMove: false }
+  isDraggingRows = false
+  document.removeEventListener('mousemove', onRowReorderMove)
+  document.removeEventListener('mouseup', onRowReorderEnd)
+}
+
 function onRowHeaderMouseOver(ri: number) {
-  if (isDraggingRows) {
+  if (isDraggingRows && !reorderRowState.value.active) {
     ss.extendRowSelection(props.table.id, ri)
   }
 }
@@ -458,16 +544,74 @@ function onColHeaderMouseDown(ci: number, e: MouseEvent) {
   if (e.button === 2 && ss.isColInSelection(props.table.id, ci)) return
   if (e.shiftKey) {
     ss.extendColumnSelection(props.table.id, ci)
+    nextTick(() => tableEl.value?.focus())
+    return
+  }
+  // If clicking a column that's already part of a multi-col selection, preserve it for reorder
+  const sr = ss.getNormalizedSelection()
+  const t = props.table
+  const isMultiColSelected = sr && sr.tableId === t.id && sr.startRow === 0 && sr.endRow === t.rows.length - 1 && sr.endCol > sr.startCol
+  const clickedInSelection = isMultiColSelected && ci >= sr!.startCol && ci <= sr!.endCol
+
+  let fromStart: number, fromEnd: number
+  if (clickedInSelection) {
+    fromStart = sr!.startCol
+    fromEnd = sr!.endCol
   } else {
     ss.selectColumn(props.table.id, ci)
-    isDraggingCols = true
-    document.addEventListener('mouseup', onSelectionMouseUp)
+    fromStart = ci
+    fromEnd = ci
   }
+  isDraggingCols = true
+  reorderColState.value = { active: false, fromStart, fromEnd, toIdx: ci, startX: e.clientX, startY: e.clientY, didMove: false }
+  document.addEventListener('mousemove', onColReorderMove)
+  document.addEventListener('mouseup', onColReorderEnd)
   nextTick(() => tableEl.value?.focus())
 }
 
+function onColReorderMove(e: MouseEvent) {
+  const st = reorderColState.value
+  if (!st.didMove) {
+    const dx = Math.abs(e.clientX - st.startX)
+    const dy = Math.abs(e.clientY - st.startY)
+    if (dx < REORDER_DRAG_THRESHOLD && dy < REORDER_DRAG_THRESHOLD) return
+    st.didMove = true
+    st.active = true
+  }
+  if (!st.active) return
+  // Find which column the mouse is over
+  const gridWrapper = tableEl.value?.querySelector('.table-grid-wrapper')
+  if (!gridWrapper) return
+  const headerCells = gridWrapper.querySelectorAll('thead th.col-header')
+  let targetIdx = st.fromStart
+  for (let i = 0; i < headerCells.length; i++) {
+    const rect = headerCells[i]?.getBoundingClientRect()
+    if (rect) {
+      const midX = rect.left + rect.width / 2
+      if (e.clientX < midX) { targetIdx = i; break }
+      targetIdx = i
+    }
+  }
+  // Don't allow dropping inside the source range
+  if (targetIdx > st.fromStart && targetIdx < st.fromEnd) {
+    targetIdx = st.fromStart
+  }
+  st.toIdx = targetIdx
+}
+
+function onColReorderEnd() {
+  const st = reorderColState.value
+  if (st.active && !(st.toIdx >= st.fromStart && st.toIdx <= st.fromEnd)) {
+    ss.reorderColumns(props.table.id, st.fromStart, st.fromEnd, st.toIdx)
+  }
+  reorderColState.value = { active: false, fromStart: -1, fromEnd: -1, toIdx: -1, startX: 0, startY: 0, didMove: false }
+  isDraggingCols = false
+  document.removeEventListener('mousemove', onColReorderMove)
+  document.removeEventListener('mouseup', onColReorderEnd)
+}
+
 function onColHeaderMouseOver(ci: number) {
-  if (isDraggingCols) {
+  if (isDraggingCols && !reorderColState.value.active) {
     ss.extendColumnSelection(props.table.id, ci)
   }
 }
@@ -635,12 +779,12 @@ function onResizeEnd() {
 const ROW_HEIGHT = 26
 const COL_WIDTH = 120
 
-let addRowDragState: { startY: number; added: number } | null = null
-let addColDragState: { startX: number; added: number } | null = null
+let addRowDragState: { startY: number; added: number; originalCount: number } | null = null
+let addColDragState: { startX: number; added: number; originalCount: number } | null = null
 
 function startAddRowDrag(e: MouseEvent) {
   // Single click (no drag) adds one row
-  addRowDragState = { startY: e.clientY, added: 0 }
+  addRowDragState = { startY: e.clientY, added: 0, originalCount: props.table.rows.length }
   document.addEventListener('mousemove', onAddRowDragMove)
   document.addEventListener('mouseup', onAddRowDragEnd)
 }
@@ -649,10 +793,16 @@ function onAddRowDragMove(e: MouseEvent) {
   if (!addRowDragState) return
   const zoom = ss.canvasZoom.value
   const dy = (e.clientY - addRowDragState.startY) / zoom
-  const target = Math.max(0, Math.round(dy / ROW_HEIGHT))
+  const target = Math.round(dy / ROW_HEIGHT)
+  // Positive target: add rows
   while (addRowDragState.added < target) {
     ss.addRow(props.table.id)
     addRowDragState.added++
+  }
+  // Negative target: remove trailing empty rows (shrink)
+  while (addRowDragState.added > target && props.table.rows.length > 1) {
+    if (!ss.removeLastRowIfEmpty(props.table.id)) break
+    addRowDragState.added--
   }
 }
 
@@ -667,7 +817,7 @@ function onAddRowDragEnd() {
 }
 
 function startAddColDrag(e: MouseEvent) {
-  addColDragState = { startX: e.clientX, added: 0 }
+  addColDragState = { startX: e.clientX, added: 0, originalCount: props.table.columns.length }
   document.addEventListener('mousemove', onAddColDragMove)
   document.addEventListener('mouseup', onAddColDragEnd)
 }
@@ -676,10 +826,16 @@ function onAddColDragMove(e: MouseEvent) {
   if (!addColDragState) return
   const zoom = ss.canvasZoom.value
   const dx = (e.clientX - addColDragState.startX) / zoom
-  const target = Math.max(0, Math.round(dx / COL_WIDTH))
+  const target = Math.round(dx / COL_WIDTH)
+  // Positive target: add columns
   while (addColDragState.added < target) {
     ss.addColumn(props.table.id)
     addColDragState.added++
+  }
+  // Negative target: remove trailing empty columns (shrink)
+  while (addColDragState.added > target && props.table.columns.length > 1) {
+    if (!ss.removeLastColumnIfEmpty(props.table.id)) break
+    addColDragState.added--
   }
 }
 
@@ -1160,6 +1316,40 @@ watch(
   z-index: 3;
   pointer-events: auto;
   cursor: default;
+}
+
+/* ── Row / Column reorder drop indicators ── */
+
+.reorder-source {
+  opacity: 0.4;
+}
+
+tr.reorder-row-source > td {
+  opacity: 0.4;
+}
+
+tr.reorder-row-drop-before > td {
+  box-shadow: inset 0 2px 0 0 var(--accent-color);
+}
+
+tr.reorder-row-drop-after > td {
+  box-shadow: inset 0 -2px 0 0 var(--accent-color);
+}
+
+.row-header.reorder-drop-before {
+  box-shadow: inset 0 2px 0 0 var(--accent-color);
+}
+
+.row-header.reorder-drop-after {
+  box-shadow: inset 0 -2px 0 0 var(--accent-color);
+}
+
+.col-header.reorder-drop-before {
+  box-shadow: inset 2px 0 0 0 var(--accent-color);
+}
+
+.col-header.reorder-drop-after {
+  box-shadow: inset -2px 0 0 0 var(--accent-color);
 }
 
 .add-row-cell {
