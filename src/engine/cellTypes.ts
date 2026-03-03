@@ -4,6 +4,7 @@
  * Supported types:
  *  - integer:      whole numbers (42, -7, 0)
  *  - float:        decimal numbers (3.14, -0.5)
+ *  - percent:      percentage values (50%, stored as 0.5)
  *  - currency_eur: Euro values (€12.50, 12,50€, €1.234,56)
  *  - currency_usd: Dollar values ($12.50, $1,234.56)
  *  - text:         any non-numeric string
@@ -16,6 +17,7 @@
 export type CellDataType =
     | 'integer'
     | 'float'
+    | 'percent'
     | 'currency_eur'
     | 'currency_usd'
     | 'text'
@@ -110,6 +112,14 @@ export function detectType(raw: string): TypedValue {
         }
     }
 
+    // Percentage (e.g. 50%, 12.5%, -3%)
+    if (/^-?\d+(\.\d+)?%$/.test(trimmed)) {
+        const num = parseFloat(trimmed) / 100
+        if (!isNaN(num)) {
+            return { type: 'percent', numericValue: num, rawInput: trimmed }
+        }
+    }
+
     // Integer (no decimal point, no leading zeros except "0" itself)
     if (/^-?\d+$/.test(trimmed)) {
         const n = parseInt(trimmed, 10)
@@ -136,7 +146,7 @@ export function detectType(raw: string): TypedValue {
  * Returns true if the type is numeric (can participate in arithmetic).
  */
 export function isNumericType(t: CellDataType): boolean {
-    return t === 'integer' || t === 'float' || t === 'currency_eur' || t === 'currency_usd'
+    return t === 'integer' || t === 'float' || t === 'percent' || t === 'currency_eur' || t === 'currency_usd'
 }
 
 /**
@@ -150,7 +160,7 @@ export function isCurrencyType(t: CellDataType): boolean {
  * Priority for type coercion (higher = more specific).
  * When two numeric types meet, we promote to the higher-priority one.
  *
- * currency > float > integer
+ * percent > currency > float > integer
  *
  * The "first cell" rule: the first operand's type is preferred.
  * If both are currency but different, the first one wins.
@@ -162,7 +172,8 @@ export const TYPE_PRIORITY: Record<CellDataType, number> = {
     'float': 3,
     'currency_eur': 4,
     'currency_usd': 4,
-    'text': 5,
+    'percent': 5,
+    'text': 6,
 }
 
 /**
@@ -229,7 +240,7 @@ export function resolveTypeList(types: CellDataType[]): CellDataType | null {
 /**
  * Format a numeric value according to the given cell type.
  */
-export function formatValue(value: number | null, type: CellDataType): string {
+export function formatValue(value: number | null, type: CellDataType, decimalPlaces?: number): string {
     if (value === null || value === undefined) return ''
 
     switch (type) {
@@ -237,27 +248,43 @@ export function formatValue(value: number | null, type: CellDataType): string {
             return Math.round(value).toString()
 
         case 'float': {
+            if (decimalPlaces != null) {
+                return value.toFixed(decimalPlaces)
+            }
             // Show up to 10 significant decimal places, trim trailing zeros
             if (Number.isInteger(value)) return value.toFixed(1)
             return parseFloat(value.toFixed(10)).toString()
         }
 
         case 'currency_usd': {
+            const dp = decimalPlaces ?? 2
             const abs = Math.abs(value)
             const formatted = abs.toLocaleString('en-US', {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
+                minimumFractionDigits: dp,
+                maximumFractionDigits: dp,
             })
             return value < 0 ? `-$${formatted}` : `$${formatted}`
         }
 
         case 'currency_eur': {
+            const dp = decimalPlaces ?? 2
             const abs = Math.abs(value)
             const formatted = abs.toLocaleString('de-DE', {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
+                minimumFractionDigits: dp,
+                maximumFractionDigits: dp,
             })
             return value < 0 ? `-€${formatted}` : `€${formatted}`
+        }
+
+        case 'percent': {
+            const pct = value * 100
+            if (decimalPlaces != null) {
+                return `${pct.toFixed(decimalPlaces)}%`
+            }
+            if (Number.isInteger(pct) || Math.abs(pct - Math.round(pct)) < 1e-9) {
+                return `${Math.round(pct)}%`
+            }
+            return `${parseFloat(pct.toFixed(10))}%`
         }
 
         case 'boolean':
@@ -271,7 +298,7 @@ export function formatValue(value: number | null, type: CellDataType): string {
 /**
  * Convert a CellValue + CellDataType into a display string.
  */
-export function formatCellDisplay(value: unknown, type: CellDataType): string {
+export function formatCellDisplay(value: unknown, type: CellDataType, decimalPlaces?: number): string {
     if (value === null || value === undefined) return ''
 
     if (type === 'text') return String(value)
@@ -282,7 +309,7 @@ export function formatCellDisplay(value: unknown, type: CellDataType): string {
     if (type === 'empty') return ''
 
     if (typeof value === 'number') {
-        return formatValue(value, type)
+        return formatValue(value, type, decimalPlaces)
     }
 
     // If it's a string that looks like an error, pass through
@@ -300,6 +327,7 @@ export function getTypeAlignment(type: CellDataType): 'left' | 'right' | 'center
     switch (type) {
         case 'integer':
         case 'float':
+        case 'percent':
         case 'currency_eur':
         case 'currency_usd':
             return 'right'
@@ -318,6 +346,7 @@ export function getTypeLabel(type: CellDataType): string {
     switch (type) {
         case 'integer': return 'Integer'
         case 'float': return 'Decimal'
+        case 'percent': return 'Percent (%)'
         case 'currency_eur': return 'Euro (€)'
         case 'currency_usd': return 'Dollar ($)'
         case 'text': return 'Text'

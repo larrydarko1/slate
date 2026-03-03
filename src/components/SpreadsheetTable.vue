@@ -281,10 +281,19 @@ function cellTextClass(ci: number, ri: number) {
     italic: cell.format?.italic,
     'type-integer': cellType === 'integer',
     'type-float': cellType === 'float',
+    'type-percent': cellType === 'percent',
     'type-currency': cellType === 'currency_eur' || cellType === 'currency_usd',
     'type-text': cellType === 'text',
     'type-boolean': cellType === 'boolean',
   }
+}
+
+function hexToRgba(hex: string, alpha: number): string {
+  const h = hex.replace('#', '')
+  const r = parseInt(h.substring(0, 2), 16)
+  const g = parseInt(h.substring(2, 4), 16)
+  const b = parseInt(h.substring(4, 6), 16)
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`
 }
 
 function cellTdStyle(ci: number, ri: number) {
@@ -302,7 +311,7 @@ function cellTdStyle(ci: number, ri: number) {
     base.width = props.table.columns[ci]?.width + 'px'
   }
   if (cell?.format?.bgColor) {
-    base.backgroundColor = cell.format.bgColor
+    base.backgroundColor = hexToRgba(cell.format.bgColor, 0.5)
   }
   // Apply formula reference highlight
   const refStyle = cellRefStyle(ci, ri)
@@ -1103,10 +1112,6 @@ watch(
   overflow: hidden;
   text-overflow: ellipsis;
 
-  &.formula-result {
-    color: var(--accent-color);
-  }
-
   &.error-value {
     color: var(--danger-color);
     font-size: 11px;
@@ -1121,7 +1126,8 @@ watch(
   }
 
   &.type-integer,
-  &.type-float {
+  &.type-float,
+  &.type-percent {
     font-feature-settings: 'tnum' 1;
   }
 }

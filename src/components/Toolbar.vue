@@ -71,6 +71,22 @@
           </button>
         </div>
       </div>
+
+      <!-- Decimal places controls -->
+      <button class="tb decimal-btn" :disabled="!hasActiveCell || !supportsDecimals" title="Decrease decimal places" @click="changeDecimals(-1)">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+          <text x="1" y="12" font-size="9" font-weight="600" fill="currentColor">.0</text>
+          <path d="M11 5l3 3-3 3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+          <text x="9.5" y="12" font-size="7" font-weight="600" fill="currentColor">0</text>
+        </svg>
+      </button>
+      <button class="tb decimal-btn" :disabled="!hasActiveCell || !supportsDecimals" title="Increase decimal places" @click="changeDecimals(1)">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+          <text x="1" y="12" font-size="9" font-weight="600" fill="currentColor">.00</text>
+          <path d="M14 5l-3 3 3 3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+          <text x="10" y="12" font-size="7" font-weight="600" fill="currentColor">0</text>
+        </svg>
+      </button>
     </div>
 
     <div class="toolbar-sep" aria-hidden="true"></div>
@@ -539,6 +555,7 @@ const typeOptions: { value: CellDataType; label: string; short: string }[] = [
   { value: 'text', label: 'Text', short: 'ABC' },
   { value: 'integer', label: 'Integer', short: '123' },
   { value: 'float', label: 'Decimal', short: '1.2' },
+  { value: 'percent', label: 'Percent (%)', short: '%' },
   { value: 'currency_usd', label: 'Dollar ($)', short: '$' },
   { value: 'currency_eur', label: 'Euro (€)', short: '€' },
 ]
@@ -550,10 +567,23 @@ const currentCellType = computed<CellDataType>(() => {
   return ss.getCellType(ss.activeCell.value.tableId, ss.activeCell.value.col, ss.activeCell.value.row)
 })
 
+const supportsDecimals = computed(() => {
+  const t = currentCellType.value
+  return t === 'float' || t === 'percent' || t === 'currency_eur' || t === 'currency_usd'
+})
+
 const currentTypeLabel = computed(() => {
   const opt = typeOptions.find(o => o.value === currentCellType.value)
   return opt ? opt.short : getTypeLabel(currentCellType.value)
 })
+
+function changeDecimals(delta: number) {
+  if (!ss.activeCell.value) return
+  const fmt = ss.getActiveCellFormat()
+  const current = fmt?.decimalPlaces ?? 2
+  const next = Math.max(0, Math.min(10, current + delta))
+  ss.setSelectionFormat({ decimalPlaces: next })
+}
 
 function toggleTypeMenu() {
   typeMenuOpen.value = !typeMenuOpen.value
@@ -770,6 +800,11 @@ function applyTheme() {
 }
 
 /* ── Type selector dropdown ── */
+
+.decimal-btn {
+  padding: 0 4px !important;
+  min-width: 24px;
+}
 
 .type-selector-wrapper {
   position: relative;

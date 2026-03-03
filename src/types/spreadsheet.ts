@@ -19,6 +19,7 @@ export interface CellFormat {
     textColor?: string
     bgColor?: string
     fontFamily?: string
+    decimalPlaces?: number
 }
 
 export interface MergedRegion {

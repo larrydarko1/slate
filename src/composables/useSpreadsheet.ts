@@ -503,13 +503,14 @@ export function useSpreadsheet() {
 
         const v = cell.formula != null ? cell.computed : cell.value
         const t = cell.formula != null ? (cell.computedType ?? cell.cellType) : cell.cellType
+        const dp = cell.format?.decimalPlaces
 
         if (v === null || v === undefined) return ''
 
         // Error strings pass through
         if (typeof v === 'string' && v.startsWith('#')) return v
 
-        return formatCellDisplay(v, t)
+        return formatCellDisplay(v, t, dp)
     }
 
     /** Get the effective type of a cell (considering formula results) */
@@ -537,6 +538,11 @@ export function useSpreadsheet() {
         pushUndo()
 
         cell.cellType = newType
+
+        // For formula cells, override the auto-detected computed type
+        if (cell.formula != null) {
+            cell.computedType = newType
+        }
 
         // Try to re-interpret the value under the new type
         if (cell.value !== null && cell.value !== undefined && !cell.formula) {
@@ -1319,7 +1325,10 @@ export function useSpreadsheet() {
                 try {
                     const result = evaluateFormulaTyped(cell.formula, buildFormulaContext(tableId))
                     cell.computed = result.value
-                    cell.computedType = result.type
+                    // Only auto-detect type if user hasn't explicitly set one
+                    if (cell.cellType === 'empty') {
+                        cell.computedType = result.type
+                    }
                 } catch {
                     cell.computed = '#ERROR!'
                     cell.computedType = 'text'
