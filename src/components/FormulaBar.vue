@@ -329,15 +329,13 @@ watch(() => ss.isEditing.value, (editing) => {
 }
 
 .ref-badge {
-  display: inline-flex;
-  align-items: center;
-  padding: 0px 4px;
+  display: inline;
   border-radius: 3px;
-  border: 1px solid;
+  box-shadow: inset 0 0 0 1px;
   font-weight: 600;
-  font-size: 11px;
-  line-height: 18px;
-  letter-spacing: 0.01em;
+  font-size: 12px;
+  line-height: inherit;
+  letter-spacing: 0;
 }
 
 .formula-mode-btn {
