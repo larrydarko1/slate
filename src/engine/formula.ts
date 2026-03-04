@@ -469,6 +469,9 @@ function evalFunction(name: string, args: ASTNode[], ctx: FormulaContext): Typed
     switch (name) {
         case 'SUM': {
             const typed = flattenTypedArgs(args, ctx)
+            // Propagate error values from any cell
+            const errCell = typed.find(v => typeof v.value === 'string' && (v.value as string).startsWith('#'))
+            if (errCell) return errCell
             const { nums, types } = numericTypedValues(typed)
             // Check for text values in input that are non-empty
             const hasText = typed.some(v => v.type === 'text' && v.value !== null && v.value !== '')
@@ -478,6 +481,9 @@ function evalFunction(name: string, args: ASTNode[], ctx: FormulaContext): Typed
         }
         case 'AVERAGE': {
             const typed = flattenTypedArgs(args, ctx)
+            // Propagate error values from any cell
+            const errCellAvg = typed.find(v => typeof v.value === 'string' && (v.value as string).startsWith('#'))
+            if (errCellAvg) return errCellAvg
             const { nums, types } = numericTypedValues(typed)
             const hasText = typed.some(v => v.type === 'text' && v.value !== null && v.value !== '')
             if (hasText) return { value: '#N/A', type: 'text' }
@@ -489,12 +495,16 @@ function evalFunction(name: string, args: ASTNode[], ctx: FormulaContext): Typed
         }
         case 'MIN': {
             const typed = flattenTypedArgs(args, ctx)
+            const errMin = typed.find(v => typeof v.value === 'string' && (v.value as string).startsWith('#'))
+            if (errMin) return errMin
             const { nums, types } = numericTypedValues(typed)
             const resultType = resolveTypeList(types) ?? 'integer'
             return { value: nums.length ? Math.min(...nums) : 0, type: resultType }
         }
         case 'MAX': {
             const typed = flattenTypedArgs(args, ctx)
+            const errMax = typed.find(v => typeof v.value === 'string' && (v.value as string).startsWith('#'))
+            if (errMax) return errMax
             const { nums, types } = numericTypedValues(typed)
             const resultType = resolveTypeList(types) ?? 'integer'
             return { value: nums.length ? Math.max(...nums) : 0, type: resultType }
@@ -632,22 +642,34 @@ function evaluate(node: ASTNode, ctx: FormulaContext): TypedCellValue {
         case 'external_range':
             throw new Error('External range can only be used as a function argument')
 
-        case 'unary':
+        case 'unary': {
+            const operand = evaluate(node.operand, ctx)
+            // Propagate error values
+            if (typeof operand.value === 'string' && operand.value.startsWith('#')) return operand
             if (node.op === '-') {
-                const operand = evaluate(node.operand, ctx)
                 return { value: -toNumber(operand.value), type: operand.type }
             }
-            return evaluate(node.operand, ctx)
+            return operand
+        }
 
         case 'binary': {
             if (node.op === '&') {
+                const lConcat = evaluateVal(node.left, ctx)
+                const rConcat = evaluateVal(node.right, ctx)
+                // Propagate errors through concatenation
+                if (typeof lConcat === 'string' && lConcat.startsWith('#')) return { value: lConcat, type: 'text' }
+                if (typeof rConcat === 'string' && rConcat.startsWith('#')) return { value: rConcat, type: 'text' }
                 return {
-                    value: String(evaluateVal(node.left, ctx) ?? '') + String(evaluateVal(node.right, ctx) ?? ''),
+                    value: String(lConcat ?? '') + String(rConcat ?? ''),
                     type: 'text'
                 }
             }
             const l = evaluate(node.left, ctx)
             const r = evaluate(node.right, ctx)
+
+            // Propagate error values (e.g. #REF!, #CIRCULAR!, #ERROR!)
+            if (typeof l.value === 'string' && l.value.startsWith('#')) return l
+            if (typeof r.value === 'string' && r.value.startsWith('#')) return r
 
             // Comparison operators
             if (['=', '<>', '<', '>', '<=', '>='].includes(node.op)) {

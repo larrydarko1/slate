@@ -1970,22 +1970,23 @@ export function useSpreadsheet() {
      * unqualified (no canvasName) references.
      */
     function findTableByName(tableName: string, canvasName?: string | null, sourceCanvasId?: string): SpreadsheetTable | undefined {
+        const nameMatch = (a: string, b: string) => a.localeCompare(b, undefined, { sensitivity: 'accent' }) === 0
         if (canvasName) {
-            const cv = canvases.value.find(c => c.name === canvasName)
+            const cv = canvases.value.find(c => nameMatch(c.name, canvasName))
             if (!cv) return undefined
-            return cv.tables.find(t => t.name === tableName)
+            return cv.tables.find(t => nameMatch(t.name, tableName))
         }
         // Prefer the source canvas (the canvas containing the formula)
         if (sourceCanvasId) {
             const srcCv = canvases.value.find(c => c.id === sourceCanvasId)
             if (srcCv) {
-                const local = srcCv.tables.find(t => t.name === tableName)
+                const local = srcCv.tables.find(t => nameMatch(t.name, tableName))
                 if (local) return local
             }
         }
         // Fall back: search all canvases
         for (const cv of canvases.value) {
-            const t = cv.tables.find(t => t.name === tableName)
+            const t = cv.tables.find(t => nameMatch(t.name, tableName))
             if (t) return t
         }
         return undefined
