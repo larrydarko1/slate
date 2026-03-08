@@ -83,6 +83,23 @@ function createWindow() {
         menu.popup();
     });
 
+    // Prevent Electron from acting as a browser — all external links open in the OS default browser
+    mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+        shell.openExternal(url);
+        return { action: 'deny' };
+    });
+
+    mainWindow.webContents.on('will-navigate', (event, url) => {
+        const appOrigin = process.env.NODE_ENV === 'development'
+            ? 'http://localhost:3000'
+            : pathToFileURL(path.join(__dirname, '../dist/index.html')).href;
+        // Allow navigation within the app's own origin only
+        if (!url.startsWith(appOrigin.replace(/index\.html$/, ''))) {
+            event.preventDefault();
+            shell.openExternal(url);
+        }
+    });
+
     // Load the app
     if (process.env.NODE_ENV === 'development') {
         mainWindow.loadURL('http://localhost:3000');
@@ -185,6 +202,20 @@ ipcMain.handle('file:read', async (event, filePath) => {
         return { success: true, content };
     } catch (error) {
         return { success: false, error: error.message };
+    }
+});
+
+// Open a URL in the OS default browser (called from renderer via IPC)
+ipcMain.handle('shell:open-external', async (_event, url) => {
+    try {
+        const parsed = new URL(url);
+        if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
+            await shell.openExternal(url);
+            return { success: true };
+        }
+        return { success: false, error: 'Only http/https URLs are allowed' };
+    } catch {
+        return { success: false, error: 'Invalid URL' };
     }
 });
 

@@ -129,6 +129,18 @@
                   <span class="cell-text" :class="cellTextClass(ci, ri)" :style="cellTextStyle(ci, ri)" :title="ss.getDisplayValue(table.id, ci, ri)">
                     {{ ss.getDisplayValue(table.id, ci, ri) }}
                   </span>
+                  <button
+                    v-if="ss.getCellType(table.id, ci, ri) === 'url' && ss.getDisplayValue(table.id, ci, ri)"
+                    class="cell-link-btn"
+                    @mousedown.stop
+                    @click.stop="openCellUrl(ss.getDisplayValue(table.id, ci, ri))"
+                    title="Open link in browser"
+                  >
+                    <svg width="10" height="10" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M4 2H2a1 1 0 00-1 1v5a1 1 0 001 1h5a1 1 0 001-1V6" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+                      <path d="M6.5 1H9v2.5M9 1L5.5 4.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                  </button>
                 </template>
                 <!-- Fill handle at bottom-right corner of selection -->
                 <div
@@ -310,6 +322,7 @@ function cellTextClass(ci: number, ri: number) {
     'type-currency': cellType === 'currency_eur' || cellType === 'currency_usd',
     'type-text': cellType === 'text',
     'type-boolean': cellType === 'boolean',
+    'type-url': cellType === 'url',
   }
 }
 
@@ -363,6 +376,15 @@ function isSelected(ci: number, ri: number) {
 
 function isCellEditing(ci: number, ri: number) {
   return isSelected(ci, ri) && ss.isEditing.value
+}
+
+function openCellUrl(url: string) {
+  if (!url) return
+  if (window.electronAPI?.openExternal) {
+    window.electronAPI.openExternal(url)
+  } else {
+    window.open(url, '_blank', 'noopener,noreferrer')
+  }
 }
 
 // ── Merged cell helpers ──
@@ -1447,6 +1469,46 @@ watch(
   &.type-percent {
     font-feature-settings: 'tnum' 1;
   }
+
+  &.type-url {
+    color: var(--accent-color, #4285f4);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    cursor: default;
+  }
+}
+
+/* ── Link open button (URL cells) ── */
+
+.cell-link-btn {
+  position: absolute;
+  right: 3px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: none;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--accent-color, #4285f4);
+  cursor: pointer;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 3;
+
+  &:hover {
+    background: var(--accent-color-alpha, rgba(66, 133, 244, 0.15));
+  }
+}
+
+.cell:hover .cell-link-btn,
+.cell.selected .cell-link-btn {
+  opacity: 1;
+  pointer-events: auto;
 }
 
 .cell-edit-input {

@@ -16,5 +16,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     onOpenFile: (callback) => {
         ipcRenderer.on('file:open-external', (_event, filePath) => callback(filePath));
     },
+
+    // Open a URL in the OS default browser
+    openExternal: (url) => ipcRenderer.invoke('shell:open-external', url),
 });
 

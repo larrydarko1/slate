@@ -7,6 +7,7 @@ export interface ElectronAPI {
     writeFile: (filePath: string, content: string) => Promise<{ success: boolean; error?: string }>;
     readFile: (filePath: string) => Promise<{ success: boolean; content?: string; error?: string }>;
     onOpenFile: (callback: (filePath: string) => void) => void;
+    openExternal: (url: string) => Promise<{ success: boolean; error?: string }>;
 }
 
 declare global {

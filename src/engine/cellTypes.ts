@@ -9,6 +9,7 @@
  *  - currency_usd: Dollar values ($12.50, $1,234.56)
  *  - text:         any non-numeric string
  *  - boolean:      true / false
+ *  - url:          a URL starting with http:// or https://
  *  - empty:        null / empty cell
  */
 
@@ -22,6 +23,7 @@ export type CellDataType =
     | 'currency_usd'
     | 'text'
     | 'boolean'
+    | 'url'
     | 'empty'
 
 export interface TypedValue {
@@ -39,6 +41,9 @@ const CURRENCY_USD_PATTERNS = [
     // 1,234.56$  or  1234.56$
     /^-?[\d,]+(?:\.\d+)?\$$/,
 ]
+
+/** Matches strings that start with http:// or https:// */
+const URL_PATTERN = /^https?:\/\/.+/i
 
 const CURRENCY_EUR_PATTERNS = [
     // €1.234,56  or  €1234,56  or  €1234  or  -€12,50
@@ -136,6 +141,11 @@ export function detectType(raw: string): TypedValue {
         }
     }
 
+    // URL (http:// or https://)
+    if (URL_PATTERN.test(trimmed)) {
+        return { type: 'url', numericValue: null, rawInput: trimmed }
+    }
+
     // Anything else is text
     return { type: 'text', numericValue: null, rawInput: trimmed }
 }
@@ -174,6 +184,7 @@ export const TYPE_PRIORITY: Record<CellDataType, number> = {
     'currency_usd': 4,
     'percent': 5,
     'text': 6,
+    'url': 6,
 }
 
 /**
@@ -188,8 +199,8 @@ export function resolveType(first: CellDataType, second: CellDataType): CellData
     if (first === 'empty') return second
     if (second === 'empty') return first
 
-    // Text mixed with numeric → incompatible for arithmetic
-    if (first === 'text' || second === 'text') return null
+    // Text/URL mixed with numeric → incompatible for arithmetic
+    if (first === 'text' || second === 'text' || first === 'url' || second === 'url') return null
 
     // Both boolean
     if (first === 'boolean' && second === 'boolean') return 'boolean'
@@ -301,7 +312,7 @@ export function formatValue(value: number | null, type: CellDataType, decimalPla
 export function formatCellDisplay(value: unknown, type: CellDataType, decimalPlaces?: number): string {
     if (value === null || value === undefined) return ''
 
-    if (type === 'text') return String(value)
+    if (type === 'text' || type === 'url') return String(value)
     if (type === 'boolean') {
         if (typeof value === 'boolean') return value ? 'TRUE' : 'FALSE'
         return value ? 'TRUE' : 'FALSE'
@@ -334,6 +345,7 @@ export function getTypeAlignment(type: CellDataType): 'left' | 'right' | 'center
         case 'boolean':
             return 'center'
         case 'text':
+        case 'url':
         default:
             return 'left'
     }
@@ -351,6 +363,7 @@ export function getTypeLabel(type: CellDataType): string {
         case 'currency_usd': return 'Dollar ($)'
         case 'text': return 'Text'
         case 'boolean': return 'Boolean'
+        case 'url': return 'URL'
         case 'empty': return 'Empty'
     }
 }
