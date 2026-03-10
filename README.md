@@ -1,77 +1,94 @@
 # Slate
 
-A free and open-source spreadsheet app inspired by Apple Numbers. Built with Vue 3, TypeScript, and Electron.
+![License](https://img.shields.io/github/license/larrydarko1/slate)
+![Issues](https://img.shields.io/github/issues/larrydarko1/slate)
+![Pull Requests](https://img.shields.io/github/issues-pr/larrydarko1/slate)
 
-Slate brings the canvas-based, design-forward spreadsheet experience to every platform — macOS, Windows, and Linux.
+Slate is a **free and open-source, canvas-based spreadsheet app** for desktop built with **Electron**, **Vue 3**, and TypeScript. Inspired by Apple Numbers, Slate brings a design-forward, layout-first spreadsheet experience to every platform — tables, charts, and text boxes arranged freely on an infinite canvas.
+
+> **Note:** This app runs natively on **Desktop** (macOS, Windows, Linux). All files are saved as `.slate` files on your local machine.
+
+# Demo
+![Slate Demo](./public/demo.png)
 
 ## Features
 
+### Canvas & Layout
 - **Canvas-based workspace** — tables, charts, and text boxes on an infinite pannable, zoomable canvas
 - **Multi-canvas support** — organize your work across multiple canvases (like sheets/tabs)
-- **Formula engine** — 29 built-in functions (SUM, AVERAGE, IF, CONCAT, etc.) with cell/range references
-- **Cross-table & cross-canvas references** — reference cells across tables and canvases in formulas
-- **7 chart types** — Bar, Line, Area, Pie, Doughnut, Scatter, and Radar with auto-updating data binding
 - **Rich text boxes** — free-form text with font, color, alignment, and border controls
+- **Dark & light themes**
+
+### Spreadsheet
+- **Formula engine** — 29 built-in functions (SUM, AVERAGE, IF, CONCAT, and more) with cell/range references
+- **Cross-table & cross-canvas references** — reference cells across tables and canvases in formulas
 - **Cell formatting** — bold, italic, text/fill colors, alignment, font family
 - **Cell merging** — merge and unmerge arbitrary rectangular regions
 - **Smart cell types** — auto-detection of numbers, percentages, currency (USD/EUR), URLs, booleans, and text
-- **Dark & light themes**
+
+### Charts
+- **7 chart types** — Bar, Line, Area, Pie, Doughnut, Scatter, and Radar
+- **Auto-updating data binding** — charts update live as spreadsheet data changes
+
+### Files
 - **Native file format** — `.slate` files (JSON-based, versioned)
 - **Cross-platform** — macOS, Windows, and Linux builds
 
 ## Getting Started
 
 ### Prerequisites
+- Node.js (v18+ recommended)
+- npm
 
-- [Node.js](https://nodejs.org/) (v18 or later recommended)
-- npm (comes with Node.js)
+### Setup
 
-### Installation
-
-```bash
+1. **Clone the repository**
+```sh
 git clone https://github.com/larrydarko1/slate.git
 cd slate
+```
+
+2. **Install dependencies**
+```sh
 npm install
 ```
 
-### Development
-
-```bash
+3. **Run in development mode**
+```sh
 npm run dev
 ```
 
-This starts Vite and Electron concurrently in development mode.
-
 ### Testing
 
-```bash
+```sh
 npm test          # watch mode
 npm run test:run  # single run
 ```
 
-### Building
+### Building for Production
 
-```bash
-# macOS
+```sh
+# Build for macOS
 npm run build:mac
 
-# Windows
+# Build for Windows
 npm run build:win
 
-# Linux
+# Build for Linux
 npm run build:linux
 ```
 
-Builds are output to the `dist-electron/` directory.
+Builds are output to the `dist-electron/` directory:
+- **macOS:** `.dmg` installer
+- **Windows:** `.exe` installer (NSIS)
+- **Linux:** `.AppImage` file
 
 ## Tech Stack
-
-- **Framework:** [Vue 3](https://vuejs.org/) (Composition API) + TypeScript
-- **Desktop:** [Electron](https://www.electronjs.org/)
-- **Build:** [Vite](https://vitejs.dev/) + [electron-builder](https://www.electron.build/)
+- **Desktop:** Electron (native macOS, Windows, Linux app)
+- **Frontend:** Vue 3, TypeScript, Vite, SCSS
 - **Charts:** [Chart.js](https://www.chartjs.org/) + [vue-chartjs](https://vue-chartjs.org/)
-- **Styling:** SCSS
-- **Testing:** [Vitest](https://vitest.dev/)
+- **Testing:** Vitest
+- **Build Tools:** Vite + Electron Builder
 
 ## Project Structure
 
@@ -112,13 +129,15 @@ slate/
 ```
 
 ## Contributing
-
-Contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on how to get involved.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 ## Code of Conduct
-
-This project follows the [Contributor Covenant Code of Conduct](CODE_OF_CONDUCT.md). By participating, you are expected to uphold this code.
+This project follows the [Contributor Covenant Code of Conduct](CODE_OF_CONDUCT.md).
 
 ## License
+This project is licensed under the MIT License. See [LICENSE](LICENSE) for details.
 
-This project is licensed under the [MIT License](LICENSE).
+---
+
+**Made with Vue 3, Electron, and a love for design-forward software.**
+
