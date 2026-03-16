@@ -15,7 +15,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
     // Listen for files opened via OS file association
     onOpenFile: (callback: (filePath: string) => void) => {
-        ipcRenderer.on('file:open-external', (_event, filePath: string) => callback(filePath));
+        const handler = (_event: Electron.IpcRendererEvent, filePath: string): void => callback(filePath);
+        ipcRenderer.on('file:open-external', handler);
+        return () => ipcRenderer.removeListener('file:open-external', handler);
     },
 
     // Open a URL in the OS default browser

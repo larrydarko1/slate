@@ -5,10 +5,10 @@
 
 import { ref, computed, onMounted, onBeforeUnmount, inject } from 'vue';
 import { SPREADSHEET_KEY } from '../composables/useSpreadsheet';
-import type { CellDataType } from '../composables/spreadsheet/engine/cellTypes';
 import type { TextBox } from '../types/spreadsheet';
-import { getTypeLabel } from '../composables/spreadsheet/engine/cellTypes';
 import ColorPicker from './toolbar/ColorPicker.vue';
+import ToolbarTypeSelector from './toolbar/ToolbarTypeSelector.vue';
+import ToolbarFontPicker from './toolbar/ToolbarFontPicker.vue';
 import { colorPalette } from './toolbar/colorPalette';
 
 defineEmits<{
@@ -136,109 +136,9 @@ function fmtSetAlign(a: 'left' | 'center' | 'right') {
     }
 }
 
-// ── Font family picker ──
-
-const fontSelectorRef = ref<HTMLElement | null>(null);
-const fontMenuOpen = ref(false);
-
-const fontOptions = [
-    'System Default',
-    'Arial',
-    'Helvetica Neue',
-    'Georgia',
-    'Times New Roman',
-    'Courier New',
-    'Menlo',
-    'SF Mono',
-    'Verdana',
-    'Trebuchet MS',
-    'Palatino',
-    'Garamond',
-    'Futura',
-    'Avenir',
-    'Gill Sans',
-    'Optima',
-];
-
-const fmtFontFamily = computed(() => {
-    if (hasActiveTextBox.value) return activeTextBoxData.value?.fontFamily ?? 'System Default';
-    const fmt = ss.getActiveCellFormat();
-    return fmt?.fontFamily ?? 'System Default';
-});
-
-function toggleFontMenu() {
-    fontMenuOpen.value = !fontMenuOpen.value;
-}
-
-function fmtSetFont(font: string) {
-    if (hasActiveTextBox.value) {
-        tbUpdateProp('fontFamily', font);
-    } else if (hasActiveCell.value) {
-        ss.setSelectionFormat({ fontFamily: font === 'System Default' ? undefined : font });
-    }
-    fontMenuOpen.value = false;
-}
-
 // ── Type selector ──
 
-const typeSelectorRef = ref<HTMLElement | null>(null);
-const typeMenuOpen = ref(false);
-
-const typeOptions: { value: CellDataType; label: string; short: string }[] = [
-    { value: 'text', label: 'Text', short: 'ABC' },
-    { value: 'integer', label: 'Integer', short: '123' },
-    { value: 'float', label: 'Decimal', short: '1.2' },
-    { value: 'percent', label: 'Percent (%)', short: '%' },
-    { value: 'currency_usd', label: 'Dollar ($)', short: '$' },
-    { value: 'currency_eur', label: 'Euro (€)', short: '€' },
-];
-
 const hasActiveCell = computed(() => !!ss.activeCell.value);
-
-const currentCellType = computed<CellDataType>(() => {
-    if (!ss.activeCell.value) return 'text';
-    return ss.getCellType(ss.activeCell.value.tableId, ss.activeCell.value.col, ss.activeCell.value.row);
-});
-
-const supportsDecimals = computed(() => {
-    const t = currentCellType.value;
-    return t === 'float' || t === 'percent' || t === 'currency_eur' || t === 'currency_usd';
-});
-
-const currentTypeLabel = computed(() => {
-    const opt = typeOptions.find((o) => o.value === currentCellType.value);
-    return opt ? opt.short : getTypeLabel(currentCellType.value);
-});
-
-function changeDecimals(delta: number) {
-    if (!ss.activeCell.value) return;
-    const fmt = ss.getActiveCellFormat();
-    const current = fmt?.decimalPlaces ?? 2;
-    const next = Math.max(0, Math.min(10, current + delta));
-    ss.setSelectionFormat({ decimalPlaces: next });
-}
-
-function toggleTypeMenu() {
-    typeMenuOpen.value = !typeMenuOpen.value;
-}
-
-function setType(t: CellDataType) {
-    if (!ss.activeCell.value) return;
-    ss.setCellType(ss.activeCell.value.tableId, ss.activeCell.value.col, ss.activeCell.value.row, t);
-    typeMenuOpen.value = false;
-}
-
-function onClickOutside(e: MouseEvent) {
-    if (typeMenuOpen.value && typeSelectorRef.value && !typeSelectorRef.value.contains(e.target as Node)) {
-        typeMenuOpen.value = false;
-    }
-    if (fontMenuOpen.value && fontSelectorRef.value && !fontSelectorRef.value.contains(e.target as Node)) {
-        fontMenuOpen.value = false;
-    }
-    // ColorPicker uses @click.stop internally, so any click reaching here is outside
-    colorMenuType.value = null;
-    tbColorMenuType.value = null;
-}
 
 // ── Cell coloring ──
 
@@ -276,6 +176,12 @@ function clearTextColor() {
 function clearFillColor() {
     ss.setSelectionFormat({ bgColor: undefined });
     colorMenuType.value = null;
+}
+
+function onClickOutside() {
+    // ColorPicker uses @click.stop internally, so any click reaching here is outside
+    colorMenuType.value = null;
+    tbColorMenuType.value = null;
 }
 
 // ── Theme ──
@@ -417,89 +323,10 @@ function applyTheme() {
         </div>
 
         <div class="toolbar-sep" aria-hidden="true"></div>
-
-        <!-- Cell type selector -->
-        <div class="toolbar-group">
-            <div ref="typeSelectorRef" class="type-selector-wrapper">
-                <button
-                    class="tb has-label type-selector-btn"
-                    :disabled="!hasActiveCell"
-                    title="Cell format type"
-                    @click="toggleTypeMenu"
-                >
-                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                        <path d="M3 3h10v2H3V3ZM3 7h6v2H3V7ZM3 11h8v2H3v-2Z" fill="currentColor" opacity="0.5" />
-                        <path d="M12 8l2 3h-4l2-3Z" fill="currentColor" />
-                    </svg>
-                    <span>{{ currentTypeLabel }}</span>
-                    <svg class="chevron" width="8" height="8" viewBox="0 0 8 8">
-                        <path
-                            d="M2 3l2 2 2-2"
-                            stroke="currentColor"
-                            stroke-width="1.2"
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                            fill="none"
-                        />
-                    </svg>
-                </button>
-                <div v-if="typeMenuOpen" class="type-dropdown">
-                    <button
-                        v-for="opt in typeOptions"
-                        :key="opt.value"
-                        class="type-option"
-                        :class="{ active: opt.value === currentCellType }"
-                        @click="setType(opt.value)"
-                    >
-                        <span class="type-option-badge" :class="'badge-' + opt.value.replace('_', '-')">{{
-                            opt.short
-                        }}</span>
-                        <span class="type-option-label">{{ opt.label }}</span>
-                    </button>
-                </div>
-            </div>
-
-            <!-- Decimal places controls -->
-            <button
-                class="tb decimal-btn"
-                :disabled="!hasActiveCell || !supportsDecimals"
-                title="Decrease decimal places"
-                @click="changeDecimals(-1)"
-            >
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                    <text x="1" y="12" font-size="9" font-weight="600" fill="currentColor">.0</text>
-                    <path
-                        d="M11 5l3 3-3 3"
-                        stroke="currentColor"
-                        stroke-width="1.3"
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                    />
-                    <text x="9.5" y="12" font-size="7" font-weight="600" fill="currentColor">0</text>
-                </svg>
-            </button>
-            <button
-                class="tb decimal-btn"
-                :disabled="!hasActiveCell || !supportsDecimals"
-                title="Increase decimal places"
-                @click="changeDecimals(1)"
-            >
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                    <text x="1" y="12" font-size="9" font-weight="600" fill="currentColor">.00</text>
-                    <path
-                        d="M14 5l-3 3 3 3"
-                        stroke="currentColor"
-                        stroke-width="1.3"
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                    />
-                    <text x="10" y="12" font-size="7" font-weight="600" fill="currentColor">0</text>
-                </svg>
-            </button>
-        </div>
-
+        \n\n
+        <!-- Cell type selector -->\n <ToolbarTypeSelector />\n\n
         <div class="toolbar-sep" aria-hidden="true"></div>
-
+        \n\n
         <!-- Cell coloring -->
         <div class="toolbar-group">
             <!-- Text color -->
@@ -556,39 +383,7 @@ function applyTheme() {
             <div class="toolbar-sep" aria-hidden="true"></div>
 
             <!-- Font family picker -->
-            <div class="toolbar-group">
-                <div ref="fontSelectorRef" class="font-selector-wrapper">
-                    <button class="tb has-label font-selector-btn" title="Font family" @click="toggleFontMenu">
-                        <span
-                            class="font-selector-label"
-                            :style="{ fontFamily: fmtFontFamily !== 'System Default' ? fmtFontFamily : undefined }"
-                            >{{ fmtFontFamily }}</span
-                        >
-                        <svg class="chevron" width="8" height="8" viewBox="0 0 8 8">
-                            <path
-                                d="M2 3l2 2 2-2"
-                                stroke="currentColor"
-                                stroke-width="1.2"
-                                stroke-linecap="round"
-                                stroke-linejoin="round"
-                                fill="none"
-                            />
-                        </svg>
-                    </button>
-                    <div v-if="fontMenuOpen" class="font-dropdown">
-                        <button
-                            v-for="font in fontOptions"
-                            :key="font"
-                            class="font-option"
-                            :class="{ active: font === fmtFontFamily }"
-                            :style="{ fontFamily: font !== 'System Default' ? font : undefined }"
-                            @click="fmtSetFont(font)"
-                        >
-                            {{ font }}
-                        </button>
-                    </div>
-                </div>
-            </div>
+            <ToolbarFontPicker />
 
             <!-- Font size (text box only) -->
             <template v-if="hasActiveTextBox">
@@ -929,170 +724,11 @@ function applyTheme() {
     }
 }
 
-/* ── Type selector dropdown ── */
-
-.decimal-btn {
-    padding: 0 4px !important;
-    min-width: 24px;
-}
-
-.type-selector-wrapper {
-    position: relative;
-}
-
-.type-selector-btn {
-    gap: 4px !important;
-
-    .chevron {
-        opacity: 0.5;
-        margin-left: 1px;
-    }
-}
-
-.type-dropdown {
-    position: absolute;
-    top: 100%;
-    left: 0;
-    margin-top: 4px;
-    background: var(--bg-primary);
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
-    box-shadow: var(--shadow-lg);
-    padding: 4px;
-    z-index: 100;
-    min-width: 150px;
-}
-
-.type-option {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    width: 100%;
-    padding: 5px 8px;
-    border: none;
-    border-radius: 5px;
-    background: transparent;
-    color: var(--text-primary);
-    font-size: 12px;
-    cursor: pointer;
-    transition: background 0.1s;
-
-    &:hover {
-        background: var(--bg-hover);
-    }
-
-    &.active {
-        background: var(--accent-color-alpha, rgba(66, 133, 244, 0.12));
-        font-weight: 600;
-    }
-}
-
-.type-option-badge {
-    font-size: 9px;
-    font-weight: 700;
-    padding: 1px 5px;
-    border-radius: 3px;
-    min-width: 26px;
-    text-align: center;
-    background: var(--bg-tertiary);
-    color: var(--text-muted);
-
-    &.badge-integer {
-        background: rgba(59, 130, 246, 0.12);
-        color: rgb(59, 130, 246);
-    }
-    &.badge-float {
-        background: rgba(99, 102, 241, 0.12);
-        color: rgb(99, 102, 241);
-    }
-    &.badge-currency-eur {
-        background: rgba(16, 185, 129, 0.12);
-        color: rgb(16, 185, 129);
-    }
-    &.badge-currency-usd {
-        background: rgba(34, 197, 94, 0.12);
-        color: rgb(34, 197, 94);
-    }
-    &.badge-text {
-        background: rgba(245, 158, 11, 0.12);
-        color: rgb(245, 158, 11);
-    }
-}
-
-.type-option-label {
-    flex: 1;
-    text-align: left;
-}
-
 /* ── TextBox toolbar extras ── */
 
 .tb-active {
     background: var(--accent-color-alpha, rgba(66, 133, 244, 0.12)) !important;
     color: var(--accent-color) !important;
-}
-
-/* ── Font selector dropdown ── */
-
-.font-selector-wrapper {
-    position: relative;
-}
-
-.font-selector-btn {
-    gap: 4px !important;
-    max-width: 140px;
-
-    .chevron {
-        opacity: 0.5;
-        margin-left: 1px;
-        flex-shrink: 0;
-    }
-}
-
-.font-selector-label {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    max-width: 110px;
-}
-
-.font-dropdown {
-    position: absolute;
-    top: 100%;
-    left: 0;
-    margin-top: 4px;
-    background: var(--bg-primary);
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
-    box-shadow: var(--shadow-lg);
-    padding: 4px;
-    z-index: 200;
-    min-width: 180px;
-    max-height: 320px;
-    overflow-y: auto;
-}
-
-.font-option {
-    display: block;
-    width: 100%;
-    padding: 5px 10px;
-    border: none;
-    border-radius: 5px;
-    background: transparent;
-    color: var(--text-primary);
-    font-size: 13px;
-    text-align: left;
-    cursor: pointer;
-    transition: background 0.1s;
-    white-space: nowrap;
-
-    &:hover {
-        background: var(--bg-hover);
-    }
-
-    &.active {
-        background: var(--accent-color-alpha, rgba(66, 133, 244, 0.12));
-        font-weight: 600;
-    }
 }
 
 .tb-font-size {

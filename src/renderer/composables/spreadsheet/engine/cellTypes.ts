@@ -1,17 +1,6 @@
-/**
- * Cell Type System for Slate
- *
- * Supported types:
- *  - integer:      whole numbers (42, -7, 0)
- *  - float:        decimal numbers (3.14, -0.5)
- *  - percent:      percentage values (50%, stored as 0.5)
- *  - currency_eur: Euro values (€12.50, 12,50€, €1.234,56)
- *  - currency_usd: Dollar values ($12.50, $1,234.56)
- *  - text:         any non-numeric string
- *  - boolean:      true / false
- *  - url:          a URL starting with http:// or https://
- *  - empty:        null / empty cell
- */
+// cellTypes — type detection, formatting, coercion, and hierarchy for cell values.
+// Owns: CellDataType, detectCellType, formatCellValue, coerceToCellType, getTypeLabel.
+// Does NOT own: formula parsing (parser.ts), evaluation (evaluator.ts).
 
 // ── Types ──
 

@@ -5,6 +5,7 @@
 import { computed, ref, onMounted, onBeforeUnmount, type Ref } from 'vue';
 import type { ChartObject } from '../types/spreadsheet';
 import type { SpreadsheetState } from './useSpreadsheet';
+import type { ChartOptions, TooltipItem, ChartTypeRegistry } from 'chart.js';
 import { Bar, Line, Pie, Doughnut, Scatter, Radar } from 'vue-chartjs';
 
 // ── Chart component mapping ─────────────────────────────────────────────────
@@ -213,8 +214,7 @@ export function useChartData(chart: Ref<ChartObject>, ss: SpreadsheetState) {
 
     // ── Chart options ──
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const chartOptions = computed((): any => {
+    const chartOptions = computed((): ChartOptions => {
         void themeKey.value;
         const chartType = chart.value.chartType;
         const isPie = chartType === 'pie' || chartType === 'doughnut';
@@ -269,8 +269,7 @@ export function useChartData(chart: Ref<ChartObject>, ss: SpreadsheetState) {
                 title: { display: false },
                 tooltip: {
                     callbacks: {
-                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                        label: (ctx: any) => {
+                        label: (ctx: TooltipItem<keyof ChartTypeRegistry>) => {
                             const label = ctx.dataset?.label ?? '';
                             const val = isScatter ? `(${ctx.parsed?.x}, ${ctx.parsed?.y})` : ctx.formattedValue;
                             return label ? `${label}: ${val}` : String(val);
@@ -278,7 +277,7 @@ export function useChartData(chart: Ref<ChartObject>, ss: SpreadsheetState) {
                     },
                 },
             },
-            scales,
+            scales: scales as ChartOptions['scales'],
         };
     });
 
