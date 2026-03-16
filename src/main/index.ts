@@ -32,15 +32,16 @@ app.on('open-file', (event, filePath) => {
 
 // ─── Windows/Linux: Check CLI args for .slate file ───────────────────────────
 
-const cliFile = process.argv.find(arg => arg.endsWith('.slate') && existsSync(arg));
+const cliFile = process.argv.find((arg) => arg.endsWith('.slate') && existsSync(arg));
 if (cliFile) fileToOpen = cliFile;
 
 // ─── Window ──────────────────────────────────────────────────────────────────
 
 function createWindow(): void {
-    const iconPath = process.platform === 'darwin'
-        ? path.join(__dirname, '../../build/icon.icns')
-        : path.join(__dirname, '../../build/icon.png');
+    const iconPath =
+        process.platform === 'darwin'
+            ? path.join(__dirname, '../../build/icon.icns')
+            : path.join(__dirname, '../../build/icon.png');
 
     mainWindow = new BrowserWindow({
         width: 1400,
@@ -64,15 +65,20 @@ function createWindow(): void {
 
     mainWindow.webContents.on('context-menu', (_event, params) => {
         const menuTemplate: Electron.MenuItemConstructorOptions[] = [
-            ...params.dictionarySuggestions.map(suggestion => ({
+            ...params.dictionarySuggestions.map((suggestion) => ({
                 label: suggestion,
                 click: () => mainWindow!.webContents.replaceMisspelling(suggestion),
             })),
             ...(params.dictionarySuggestions.length > 0 ? [{ type: 'separator' as const }] : []),
-            ...(params.misspelledWord ? [{
-                label: 'Add to Dictionary',
-                click: () => mainWindow!.webContents.session.addWordToSpellCheckerDictionary(params.misspelledWord),
-            }] : []),
+            ...(params.misspelledWord
+                ? [
+                      {
+                          label: 'Add to Dictionary',
+                          click: () =>
+                              mainWindow!.webContents.session.addWordToSpellCheckerDictionary(params.misspelledWord),
+                      },
+                  ]
+                : []),
             ...(params.misspelledWord ? [{ type: 'separator' as const }] : []),
             { role: 'cut' as const, visible: params.isEditable },
             { role: 'copy' as const, visible: params.selectionText.length > 0 },
@@ -100,9 +106,10 @@ function createWindow(): void {
 
     // Intercept in-page navigation — only allow same-origin
     mainWindow.webContents.on('will-navigate', (event, url) => {
-        const appOrigin = process.env.NODE_ENV === 'development'
-            ? 'http://localhost:3000'
-            : pathToFileURL(path.join(__dirname, '../renderer/index.html')).href;
+        const appOrigin =
+            process.env.NODE_ENV === 'development'
+                ? 'http://localhost:3000'
+                : pathToFileURL(path.join(__dirname, '../renderer/index.html')).href;
 
         if (!url.startsWith(appOrigin.replace(/index\.html$/, ''))) {
             event.preventDefault();
@@ -147,7 +154,7 @@ if (!gotLock) {
     app.quit();
 } else {
     app.on('second-instance', (_event, argv) => {
-        const file = argv.find(arg => arg.endsWith('.slate') && existsSync(arg));
+        const file = argv.find((arg) => arg.endsWith('.slate') && existsSync(arg));
         if (file && mainWindow) {
             mainWindow.webContents.send('file:open-external', file);
             if (mainWindow.isMinimized()) mainWindow.restore();
@@ -220,7 +227,11 @@ ipcMain.handle('file:write', async (_event, filePath: string, content: string) =
     } catch (err) {
         // Clean up tmp file if rename failed
         const tmpPath = filePath + '.tmp';
-        try { unlinkSync(tmpPath); } catch { /* tmp already gone */ }
+        try {
+            unlinkSync(tmpPath);
+        } catch {
+            /* tmp already gone */
+        }
 
         console.error('[file:write]', err);
         return { success: false, error: err instanceof Error ? err.message : 'Write failed' };

@@ -1,108 +1,108 @@
 <script setup lang="ts">
-import { provide, onMounted } from 'vue'
-import { useSpreadsheet, SPREADSHEET_KEY } from './composables/useSpreadsheet'
-import TitleBar from './components/TitleBar.vue'
-import Toolbar from './components/Toolbar.vue'
-import FormulaBar from './components/FormulaBar.vue'
-import CanvasWorkspace from './components/CanvasWorkspace.vue'
-import CanvasTabs from './components/CanvasTabs.vue'
+import { provide, onMounted } from 'vue';
+import { useSpreadsheet, SPREADSHEET_KEY } from './composables/useSpreadsheet';
+import TitleBar from './components/TitleBar.vue';
+import Toolbar from './components/Toolbar.vue';
+import FormulaBar from './components/FormulaBar.vue';
+import CanvasWorkspace from './components/CanvasWorkspace.vue';
+import CanvasTabs from './components/CanvasTabs.vue';
 
-const ss = useSpreadsheet()
-provide(SPREADSHEET_KEY, ss)
+const ss = useSpreadsheet();
+provide(SPREADSHEET_KEY, ss);
 
 // Handle new file with confirmation
 const handleNewFile = () => {
-  if (confirm('Create a new file? Any unsaved changes will be lost.')) {
-    ss.newFile()
-  }
-}
+    if (confirm('Create a new file? Any unsaved changes will be lost.')) {
+        ss.newFile();
+    }
+};
 
 // Handle keyboard shortcuts for file operations
 const handleKeydown = (e: KeyboardEvent) => {
-  const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0
-  const modifier = isMac ? e.metaKey : e.ctrlKey
+    const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+    const modifier = isMac ? e.metaKey : e.ctrlKey;
 
-  if (!modifier) return
+    if (!modifier) return;
 
-  switch (e.key.toLowerCase()) {
-    case 's':
-      e.preventDefault()
-      if (e.shiftKey) {
-        ss.saveAsFile()
-      } else {
-        ss.saveFile()
-      }
-      break
-    case 'o':
-      e.preventDefault()
-      ss.openFile()
-      break
-    case 'n':
-      e.preventDefault()
-      handleNewFile()
-      break
-    case '=':
-    case '+':
-      e.preventDefault()
-      ss.zoomIn()
-      break
-    case '-':
-      e.preventDefault()
-      ss.zoomOut()
-      break
-    case '0':
-      e.preventDefault()
-      ss.resetZoom()
-      break
-    case 'z':
-      e.preventDefault()
-      if (e.shiftKey) {
-        ss.redo()
-      } else {
-        ss.undo()
-      }
-      break
-  }
-}
+    switch (e.key.toLowerCase()) {
+        case 's':
+            e.preventDefault();
+            if (e.shiftKey) {
+                ss.saveAsFile();
+            } else {
+                ss.saveFile();
+            }
+            break;
+        case 'o':
+            e.preventDefault();
+            ss.openFile();
+            break;
+        case 'n':
+            e.preventDefault();
+            handleNewFile();
+            break;
+        case '=':
+        case '+':
+            e.preventDefault();
+            ss.zoomIn();
+            break;
+        case '-':
+            e.preventDefault();
+            ss.zoomOut();
+            break;
+        case '0':
+            e.preventDefault();
+            ss.resetZoom();
+            break;
+        case 'z':
+            e.preventDefault();
+            if (e.shiftKey) {
+                ss.redo();
+            } else {
+                ss.undo();
+            }
+            break;
+    }
+};
 
 // Add one table on startup if none exist
 onMounted(() => {
-  if (ss.tables.value.length === 0) {
-    ss.addTable()
-  }
+    if (ss.tables.value.length === 0) {
+        ss.addTable();
+    }
 
-  // Listen for files opened via OS file association (double-click .slate)
-  window.electronAPI?.onOpenFile((filePath: string) => {
-    ss.loadFileFromPath(filePath)
-  })
-})
+    // Listen for files opened via OS file association (double-click .slate)
+    window.electronAPI?.onOpenFile((filePath: string) => {
+        ss.loadFileFromPath(filePath);
+    });
+});
 </script>
 
 <template>
-  <div class="app-shell" @keydown="handleKeydown">
-    <TitleBar />
-    <Toolbar 
-      @addTable="ss.addTable()" 
-      @addTextBox="ss.addTextBox()"
-      @addChart="ss.addChart()"
-      @newFile="handleNewFile"
-      @openFile="ss.openFile"
-      @saveFile="ss.saveFile"
-      @mergeCells="ss.mergeSelection"
-      @unmergeCells="ss.unmergeSelection"
-    />
-    <FormulaBar />
-    <CanvasWorkspace />
-    <CanvasTabs />
-  </div>
+    <div class="app-shell" @keydown="handleKeydown">
+        <TitleBar />
+        <Toolbar
+            @add-table="ss.addTable()"
+            @add-text-box="ss.addTextBox()"
+            @add-chart="ss.addChart()"
+            @new-file="handleNewFile"
+            @open-file="ss.openFile"
+            @save-file="ss.saveFile"
+            @merge-cells="ss.mergeSelection"
+            @unmerge-cells="ss.unmergeSelection"
+        />
+        <FormulaBar />
+        <CanvasWorkspace />
+        <CanvasTabs />
+    </div>
 </template>
 
 <style lang="scss">
 .app-shell {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  background: var(--bg-primary);
-  outline: none;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    background: var(--bg-primary);
+    outline: none;
 }
 </style>

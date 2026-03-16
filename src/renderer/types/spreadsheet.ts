@@ -1,142 +1,142 @@
-import type { CellDataType } from '../engine/cellTypes'
+import type { CellDataType } from '../composables/spreadsheet/engine/cellTypes';
 
-export type CellValue = string | number | boolean | null
+export type CellValue = string | number | boolean | null;
 
 export interface Cell {
-    value: CellValue
-    formula?: string        // Formula body (without leading '=')
-    computed?: CellValue     // Cached result of formula evaluation
-    cellType: CellDataType   // Detected / assigned data type
-    computedType?: CellDataType  // Resolved type after formula evaluation
-    format?: CellFormat
-    note?: string            // User-added note / comment on the cell
+    value: CellValue;
+    formula?: string; // Formula body (without leading '=')
+    computed?: CellValue; // Cached result of formula evaluation
+    cellType: CellDataType; // Detected / assigned data type
+    computedType?: CellDataType; // Resolved type after formula evaluation
+    format?: CellFormat;
+    note?: string; // User-added note / comment on the cell
 }
 
 export interface CellFormat {
-    bold?: boolean
-    italic?: boolean
-    align?: 'left' | 'center' | 'right'
-    textColor?: string
-    bgColor?: string
-    fontFamily?: string
-    decimalPlaces?: number
+    bold?: boolean;
+    italic?: boolean;
+    align?: 'left' | 'center' | 'right';
+    textColor?: string;
+    bgColor?: string;
+    fontFamily?: string;
+    decimalPlaces?: number;
 }
 
 export interface MergedRegion {
-    startCol: number
-    startRow: number
-    endCol: number
-    endRow: number
+    startCol: number;
+    startRow: number;
+    endCol: number;
+    endRow: number;
 }
 
 export interface SelectionRange {
-    tableId: string
-    startCol: number
-    startRow: number
-    endCol: number
-    endRow: number
+    tableId: string;
+    startCol: number;
+    startRow: number;
+    endCol: number;
+    endRow: number;
 }
 
 export interface Column {
-    id: string
-    width: number
+    id: string;
+    width: number;
 }
 
 export interface SpreadsheetTable {
-    id: string
-    name: string
-    x: number
-    y: number
-    zIndex: number
-    columns: Column[]
-    rows: Cell[][]            // rows[rowIndex][colIndex]
-    headerRows: number
-    mergedRegions: MergedRegion[]
+    id: string;
+    name: string;
+    x: number;
+    y: number;
+    zIndex: number;
+    columns: Column[];
+    rows: Cell[][]; // rows[rowIndex][colIndex]
+    headerRows: number;
+    mergedRegions: MergedRegion[];
 }
 
 export interface CellReference {
-    tableId: string
-    col: number
-    row: number
+    tableId: string;
+    col: number;
+    row: number;
 }
 
 export interface TextBox {
-    id: string
-    x: number
-    y: number
-    width: number
-    height: number
-    zIndex: number
-    text: string
-    fontSize: number
-    fontFamily: string
-    fontWeight: 'normal' | 'bold'
-    fontStyle: 'normal' | 'italic'
-    textColor: string
-    bgColor: string
-    align: 'left' | 'center' | 'right'
-    borderColor: string
-    borderWidth: number
-    borderRadius: number
+    id: string;
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    zIndex: number;
+    text: string;
+    fontSize: number;
+    fontFamily: string;
+    fontWeight: 'normal' | 'bold';
+    fontStyle: 'normal' | 'italic';
+    textColor: string;
+    bgColor: string;
+    align: 'left' | 'center' | 'right';
+    borderColor: string;
+    borderWidth: number;
+    borderRadius: number;
 }
 
-export type ChartType = 'bar' | 'line' | 'pie' | 'doughnut' | 'scatter' | 'area' | 'radar'
+export type ChartType = 'bar' | 'line' | 'pie' | 'doughnut' | 'scatter' | 'area' | 'radar';
 
 /** A single cell-range reference for chart data (formula-style ref string) */
 export interface ChartDataRef {
     /** Reference string, e.g. "Table 1::A2:A10", "'Canvas 2'::'Table 1'::C1:C10" */
-    refString: string
+    refString: string;
 }
 
 export interface ChartDataSource {
     /** Label / category data reference (X axis labels, slice names) */
-    labelRef: ChartDataRef | null
+    labelRef: ChartDataRef | null;
     /** Value series — each entry is one data series plotted on the chart */
-    seriesRefs: ChartDataRef[]
+    seriesRefs: ChartDataRef[];
     /** Whether the first cell of each range is a header (used for series names) */
-    useHeader: boolean
+    useHeader: boolean;
 }
 
 export interface ChartObject {
-    id: string
-    x: number
-    y: number
-    width: number
-    height: number
-    zIndex: number
-    chartType: ChartType
-    title: string
-    dataSource: ChartDataSource | null
-    showLegend: boolean
-    showGrid: boolean
-    legendPosition: 'top' | 'bottom' | 'left' | 'right'
-    colorScheme: string[]
+    id: string;
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    zIndex: number;
+    chartType: ChartType;
+    title: string;
+    dataSource: ChartDataSource | null;
+    showLegend: boolean;
+    showGrid: boolean;
+    legendPosition: 'top' | 'bottom' | 'left' | 'right';
+    colorScheme: string[];
 }
 
 export interface Sheet {
-    id: string
-    name: string
-    tables: SpreadsheetTable[]
+    id: string;
+    name: string;
+    tables: SpreadsheetTable[];
 }
 
 export interface Canvas {
-    id: string
-    name: string
-    tables: SpreadsheetTable[]
-    textBoxes: TextBox[]
-    charts: ChartObject[]
-    canvasOffset: { x: number; y: number }
-    canvasZoom: number
+    id: string;
+    name: string;
+    tables: SpreadsheetTable[];
+    textBoxes: TextBox[];
+    charts: ChartObject[];
+    canvasOffset: { x: number; y: number };
+    canvasZoom: number;
 }
 
 /** Zoom limits */
-export const MIN_ZOOM = 0.25
-export const MAX_ZOOM = 4.0
-export const ZOOM_STEP = 0.1
-export const ZOOM_PRESETS = [0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 2.0, 3.0, 4.0]
+export const MIN_ZOOM = 0.25;
+export const MAX_ZOOM = 4.0;
+export const ZOOM_STEP = 0.1;
+export const ZOOM_PRESETS = [0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 2.0, 3.0, 4.0];
 
 /** Maximum number of canvases allowed per file */
-export const MAX_CANVASES = 10
+export const MAX_CANVASES = 10;
 
 export function createDefaultCanvas(name: string): Canvas {
     return {
@@ -147,37 +147,37 @@ export function createDefaultCanvas(name: string): Canvas {
         charts: [],
         canvasOffset: { x: 0, y: 0 },
         canvasZoom: 1.0,
-    }
+    };
 }
 
 // ── Helpers ──
 
-let _idCounter = 0
+let _idCounter = 0;
 
 export function generateId(prefix: string): string {
-    return `${prefix}_${Date.now()}_${++_idCounter}`
+    return `${prefix}_${Date.now()}_${++_idCounter}`;
 }
 
 export function indexToColumnLetter(index: number): string {
-    let result = ''
-    let n = index
+    let result = '';
+    let n = index;
     while (n >= 0) {
-        result = String.fromCharCode(65 + (n % 26)) + result
-        n = Math.floor(n / 26) - 1
+        result = String.fromCharCode(65 + (n % 26)) + result;
+        n = Math.floor(n / 26) - 1;
     }
-    return result
+    return result;
 }
 
 export function columnLetterToIndex(letter: string): number {
-    let result = 0
+    let result = 0;
     for (let i = 0; i < letter.length; i++) {
-        result = result * 26 + (letter.charCodeAt(i) - 64)
+        result = result * 26 + (letter.charCodeAt(i) - 64);
     }
-    return result - 1
+    return result - 1;
 }
 
 export function createEmptyCell(): Cell {
-    return { value: null, cellType: 'empty' }
+    return { value: null, cellType: 'empty' };
 }
 
 export function createDefaultTextBox(x: number, y: number): TextBox {
@@ -199,14 +199,21 @@ export function createDefaultTextBox(x: number, y: number): TextBox {
         borderColor: '',
         borderWidth: 0,
         borderRadius: 6,
-    }
+    };
 }
 
 const DEFAULT_CHART_COLORS = [
-    '#4e79a7', '#f28e2b', '#e15759', '#76b7b2',
-    '#59a14f', '#edc948', '#b07aa1', '#ff9da7',
-    '#9c755f', '#bab0ac',
-]
+    '#4e79a7',
+    '#f28e2b',
+    '#e15759',
+    '#76b7b2',
+    '#59a14f',
+    '#edc948',
+    '#b07aa1',
+    '#ff9da7',
+    '#9c755f',
+    '#bab0ac',
+];
 
 export function createDefaultChart(x: number, y: number): ChartObject {
     return {
@@ -223,19 +230,19 @@ export function createDefaultChart(x: number, y: number): ChartObject {
         showGrid: true,
         legendPosition: 'top',
         colorScheme: [...DEFAULT_CHART_COLORS],
-    }
+    };
 }
 
 export function createDefaultTable(x: number, y: number, name: string): SpreadsheetTable {
-    const colCount = 5
-    const rowCount = 8
+    const colCount = 5;
+    const rowCount = 8;
     const columns: Column[] = Array.from({ length: colCount }, () => ({
         id: generateId('col'),
         width: 120,
-    }))
+    }));
     const rows: Cell[][] = Array.from({ length: rowCount }, () =>
         Array.from({ length: colCount }, () => createEmptyCell()),
-    )
+    );
     return {
         id: generateId('tbl'),
         name,
@@ -246,5 +253,5 @@ export function createDefaultTable(x: number, y: number, name: string): Spreadsh
         rows,
         headerRows: 1,
         mergedRegions: [],
-    }
+    };
 }

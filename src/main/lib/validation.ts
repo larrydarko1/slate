@@ -20,10 +20,10 @@ export function assertInsideBoundary(targetPath: string, rootDir: string): strin
 
 /**
  * Ensure `name` is a plain filename with no directory separators or traversal.
- * Throws if `name` contains slashes or resolves differently from itself.
+ * Throws if `name` contains slashes, backslashes, or is a traversal component.
  */
 export function assertSafeFileName(name: string): void {
-    if (!name || path.basename(name) !== name) {
+    if (!name || name === '.' || name === '..' || name.includes('\\') || path.basename(name) !== name) {
         throw new Error('Invalid name: must be a plain filename without path separators.');
     }
 }
