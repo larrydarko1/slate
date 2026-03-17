@@ -323,10 +323,11 @@ function applyTheme() {
         </div>
 
         <div class="toolbar-sep" aria-hidden="true"></div>
-        \n\n
-        <!-- Cell type selector -->\n <ToolbarTypeSelector />\n\n
+
+        <!-- Cell type selector -->
+        <ToolbarTypeSelector />
         <div class="toolbar-sep" aria-hidden="true"></div>
-        \n\n
+
         <!-- Cell coloring -->
         <div class="toolbar-group">
             <!-- Text color -->
