@@ -122,7 +122,7 @@ onBeforeUnmount(() => document.removeEventListener('click', onClickOutside));
     border: none;
     border-radius: 6px;
     background: transparent;
-    color: var(--text-muted);
+    color: $text-muted;
     font-size: 12px;
     font-weight: 500;
     cursor: pointer;
@@ -136,12 +136,12 @@ onBeforeUnmount(() => document.removeEventListener('click', onClickOutside));
     }
 
     &:hover {
-        background: var(--bg-hover);
-        color: var(--text-primary);
+        background: $bg-hover;
+        color: $text-primary;
     }
 
     &:active {
-        background: var(--bg-selected);
+        background: $bg-selected;
     }
 
     &.has-label {
@@ -182,10 +182,10 @@ onBeforeUnmount(() => document.removeEventListener('click', onClickOutside));
     top: 100%;
     left: 0;
     margin-top: 4px;
-    background: var(--bg-primary);
-    border: 1px solid var(--border-color);
+    background: $bg-primary;
+    border: 1px solid $border-color;
     border-radius: 8px;
-    box-shadow: var(--shadow-lg);
+    box-shadow: $shadow-lg;
     padding: 4px;
     z-index: 200;
     min-width: 180px;
@@ -200,7 +200,7 @@ onBeforeUnmount(() => document.removeEventListener('click', onClickOutside));
     border: none;
     border-radius: 5px;
     background: transparent;
-    color: var(--text-primary);
+    color: $text-primary;
     font-size: 13px;
     text-align: left;
     cursor: pointer;
@@ -208,11 +208,11 @@ onBeforeUnmount(() => document.removeEventListener('click', onClickOutside));
     white-space: nowrap;
 
     &:hover {
-        background: var(--bg-hover);
+        background: $bg-hover;
     }
 
     &.active {
-        background: var(--accent-color-alpha, rgba(66, 133, 244, 0.12));
+        background: $accent-color-alpha;
         font-weight: 600;
     }
 }

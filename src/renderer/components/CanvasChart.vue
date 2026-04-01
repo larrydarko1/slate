@@ -148,24 +148,24 @@ function onTitleInput(e: Event): void {
     position: absolute;
     cursor: default;
     user-select: none;
-    background: var(--bg-primary);
-    border: 1px solid var(--border-color);
+    background: $bg-primary;
+    border: 1px solid $border-color;
     border-radius: 8px;
     display: flex;
     flex-direction: column;
     overflow: visible;
-    box-shadow: var(--shadow-sm);
+    box-shadow: $shadow-sm;
     transition:
         border-color 0.15s,
         box-shadow 0.15s;
 
     &:hover:not(.active) {
-        border-color: var(--text-muted);
+        border-color: $text-muted;
     }
 
     &.active {
-        border-color: var(--accent-color);
-        box-shadow: 0 0 0 1px var(--accent-color);
+        border-color: $accent-color;
+        box-shadow: 0 0 0 1px $accent-color;
     }
 }
 
@@ -174,7 +174,7 @@ function onTitleInput(e: Event): void {
     padding: 6px 10px 0;
     font-size: 13px;
     font-weight: 600;
-    color: var(--text-primary);
+    color: $text-primary;
     min-height: 28px;
 }
 
@@ -188,7 +188,7 @@ function onTitleInput(e: Event): void {
     padding: 0;
 
     &::placeholder {
-        color: var(--text-muted);
+        color: $text-muted;
     }
 }
 
@@ -213,7 +213,7 @@ function onTitleInput(e: Event): void {
     justify-content: center;
     height: 100%;
     text-align: center;
-    color: var(--text-muted);
+    color: $text-muted;
 }
 
 .chart-empty-icon {
@@ -274,7 +274,7 @@ function onTitleInput(e: Event): void {
     height: 8px;
     cursor: se-resize;
     border-radius: 50%;
-    background: var(--accent-color);
+    background: $accent-color;
 }
 .rh-ne {
     right: -4px;
@@ -283,7 +283,7 @@ function onTitleInput(e: Event): void {
     height: 8px;
     cursor: ne-resize;
     border-radius: 50%;
-    background: var(--accent-color);
+    background: $accent-color;
 }
 .rh-nw {
     left: -4px;
@@ -292,7 +292,7 @@ function onTitleInput(e: Event): void {
     height: 8px;
     cursor: nw-resize;
     border-radius: 50%;
-    background: var(--accent-color);
+    background: $accent-color;
 }
 .rh-sw {
     left: -4px;
@@ -301,7 +301,7 @@ function onTitleInput(e: Event): void {
     height: 8px;
     cursor: sw-resize;
     border-radius: 50%;
-    background: var(--accent-color);
+    background: $accent-color;
 }
 
 .chart-delete {
@@ -311,9 +311,9 @@ function onTitleInput(e: Event): void {
     width: 20px;
     height: 20px;
     border-radius: 50%;
-    border: 1px solid var(--border-color);
-    background: var(--bg-primary);
-    color: var(--text-muted);
+    border: 1px solid $border-color;
+    background: $bg-primary;
+    color: $text-muted;
     font-size: 14px;
     line-height: 1;
     cursor: pointer;
@@ -321,12 +321,12 @@ function onTitleInput(e: Event): void {
     align-items: center;
     justify-content: center;
     z-index: 11;
-    box-shadow: var(--shadow-sm);
+    box-shadow: $shadow-sm;
 
     &:hover {
-        background: var(--danger-color-alpha);
-        color: var(--danger-color);
-        border-color: var(--danger-color);
+        background: $danger-color-alpha;
+        color: $danger-color;
+        border-color: $danger-color;
     }
 }
 </style>

@@ -166,7 +166,7 @@ onBeforeUnmount(() => document.removeEventListener('click', onClickOutside));
     border: none;
     border-radius: 6px;
     background: transparent;
-    color: var(--text-muted);
+    color: $text-muted;
     font-size: 12px;
     font-weight: 500;
     cursor: pointer;
@@ -180,12 +180,12 @@ onBeforeUnmount(() => document.removeEventListener('click', onClickOutside));
     }
 
     &:hover {
-        background: var(--bg-hover);
-        color: var(--text-primary);
+        background: $bg-hover;
+        color: $text-primary;
     }
 
     &:active {
-        background: var(--bg-selected);
+        background: $bg-selected;
     }
 
     &.has-label {
@@ -222,10 +222,10 @@ onBeforeUnmount(() => document.removeEventListener('click', onClickOutside));
     top: 100%;
     left: 0;
     margin-top: 4px;
-    background: var(--bg-primary);
-    border: 1px solid var(--border-color);
+    background: $bg-primary;
+    border: 1px solid $border-color;
     border-radius: 8px;
-    box-shadow: var(--shadow-lg);
+    box-shadow: $shadow-lg;
     padding: 4px;
     z-index: 100;
     min-width: 150px;
@@ -240,17 +240,17 @@ onBeforeUnmount(() => document.removeEventListener('click', onClickOutside));
     border: none;
     border-radius: 5px;
     background: transparent;
-    color: var(--text-primary);
+    color: $text-primary;
     font-size: 12px;
     cursor: pointer;
     transition: background 0.1s;
 
     &:hover {
-        background: var(--bg-hover);
+        background: $bg-hover;
     }
 
     &.active {
-        background: var(--accent-color-alpha, rgba(66, 133, 244, 0.12));
+        background: $accent-color-alpha;
         font-weight: 600;
     }
 }
@@ -262,8 +262,8 @@ onBeforeUnmount(() => document.removeEventListener('click', onClickOutside));
     border-radius: 3px;
     min-width: 26px;
     text-align: center;
-    background: var(--bg-tertiary);
-    color: var(--text-muted);
+    background: $bg-tertiary;
+    color: $text-muted;
 
     &.badge-integer {
         background: rgba(59, 130, 246, 0.12);

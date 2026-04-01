@@ -210,8 +210,8 @@ watch(
     align-items: center;
     height: 32px;
     padding: 0 12px;
-    background: var(--bg-secondary);
-    border-bottom: 1px solid var(--border-color);
+    background: $bg-secondary;
+    border-bottom: 1px solid $border-color;
     flex-shrink: 0;
     -webkit-app-region: no-drag;
 }
@@ -221,7 +221,7 @@ watch(
     max-width: 180px;
     font-size: 11px;
     font-weight: 600;
-    color: var(--text-muted);
+    color: $text-muted;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -230,7 +230,7 @@ watch(
 }
 
 .cell-ref-empty {
-    color: var(--text3);
+    color: $text3;
 }
 
 .type-badge {
@@ -243,8 +243,8 @@ watch(
     margin-right: 6px;
     flex-shrink: 0;
     line-height: 16px;
-    background: var(--bg-tertiary);
-    color: var(--text-muted);
+    background: $bg-tertiary;
+    color: $text-muted;
 
     &.type-integer {
         background: rgba(59, 130, 246, 0.12);
@@ -275,7 +275,7 @@ watch(
 .formula-separator {
     width: 1px;
     height: 16px;
-    background: var(--border-color);
+    background: $border-color;
     margin-right: 8px;
     flex-shrink: 0;
 }
@@ -290,7 +290,7 @@ watch(
 .fx-label {
     font-size: 11px;
     font-weight: 700;
-    color: var(--accent-color);
+    color: $accent-color;
     flex-shrink: 0;
     opacity: 0.85;
 }
@@ -308,19 +308,19 @@ watch(
     outline: none;
     background: transparent;
     font-size: 12px;
-    font-family: 'SF Mono', 'Menlo', 'Monaco', 'Consolas', monospace;
-    color: var(--text-primary);
+    font-family: $font-family;
+    color: $text-primary;
     padding: 2px 0;
     position: relative;
     z-index: 1;
 
     &.has-rich-overlay {
         color: transparent;
-        caret-color: var(--text-primary);
+        caret-color: $text-primary;
     }
 
     &::placeholder {
-        color: var(--text3);
+        color: $text3;
     }
 
     &:disabled {
@@ -346,11 +346,11 @@ watch(
 }
 
 .formula-eq {
-    color: var(--text-muted);
+    color: $text-muted;
 }
 
 .formula-text {
-    color: var(--text-primary);
+    color: $text-primary;
 }
 
 .ref-badge {
@@ -369,22 +369,22 @@ watch(
     justify-content: center;
     width: 26px;
     height: 22px;
-    border: 1px solid var(--border-color);
+    border: 1px solid $border-color;
     border-radius: 5px;
-    background: var(--bg-tertiary);
-    color: var(--text-muted);
+    background: $bg-tertiary;
+    color: $text-muted;
     cursor: pointer;
     flex-shrink: 0;
     transition: all 0.15s;
 
     &:hover:not(:disabled) {
-        background: var(--bg-hover);
-        color: var(--text-primary);
+        background: $bg-hover;
+        color: $text-primary;
     }
 
     &.active {
-        background: var(--accent-color);
-        border-color: var(--accent-color);
+        background: $accent-color;
+        border-color: $accent-color;
         color: #fff;
     }
 

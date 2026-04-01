@@ -149,10 +149,10 @@ watch(
 
 .note-editor-delete {
     background: transparent;
-    color: var(--danger-color, #ef4444);
+    color: $danger-color;
 
     &:hover {
-        background: var(--danger-color-alpha, rgba(239, 68, 68, 0.1));
+        background: $danger-color-alpha;
     }
 }
 </style>

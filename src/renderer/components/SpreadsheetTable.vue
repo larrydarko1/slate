@@ -559,17 +559,17 @@ watch(
     position: absolute;
     border-radius: 10px;
     overflow: hidden;
-    box-shadow: var(--shadow-md);
-    border: 1px solid var(--border-color);
-    background: var(--bg-primary);
+    box-shadow: $shadow-md;
+    border: 1px solid $border-color;
+    background: $bg-primary;
     outline: none;
     transition:
         box-shadow 0.15s,
         border-color 0.15s;
 
     &.active {
-        box-shadow: var(--shadow-lg);
-        border-color: var(--accent-color);
+        box-shadow: $shadow-lg;
+        border-color: $accent-color;
     }
 
     &.formula-mode {
@@ -577,7 +577,7 @@ watch(
             cursor: crosshair;
 
             &:hover {
-                background: var(--accent-color-alpha, rgba(66, 133, 244, 0.12)) !important;
+                background: $accent-color-alpha !important;
             }
         }
     }
@@ -591,7 +591,7 @@ watch(
     justify-content: space-between;
     height: 30px;
     padding: 0 10px;
-    background: var(--accent-color);
+    background: $accent-color;
     color: #fff;
     cursor: grab;
     user-select: none;
@@ -660,41 +660,41 @@ watch(
     width: 36px;
     min-width: 36px;
     height: 24px;
-    background: var(--bg-tertiary);
-    border-bottom: 1px solid var(--border-color);
-    border-right: 1px solid var(--border-color);
+    background: $bg-tertiary;
+    border-bottom: 1px solid $border-color;
+    border-right: 1px solid $border-color;
     cursor: pointer;
     user-select: none;
 
     &:hover {
-        background: var(--bg-hover);
+        background: $bg-hover;
     }
 
     &.all-selected {
-        background: var(--accent-color);
+        background: $accent-color;
     }
 }
 
 .col-header {
     position: relative;
     height: 24px;
-    background: var(--bg-tertiary);
-    border-bottom: 1px solid var(--border-color);
-    border-right: 1px solid var(--border-color);
+    background: $bg-tertiary;
+    border-bottom: 1px solid $border-color;
+    border-right: 1px solid $border-color;
     font-size: 11px;
     font-weight: 600;
-    color: var(--text-muted);
+    color: $text-muted;
     text-align: center;
     user-select: none;
     padding: 0 4px;
     cursor: pointer;
 
     &:hover:not(.col-selected) {
-        background: var(--bg-hover);
+        background: $bg-hover;
     }
 
     &.col-selected {
-        background: var(--accent-color);
+        background: $accent-color;
         color: #fff;
     }
 }
@@ -710,7 +710,7 @@ watch(
 
     &:hover,
     &:active {
-        background: var(--accent-color);
+        background: $accent-color;
         opacity: 0.4;
     }
 }
@@ -718,14 +718,14 @@ watch(
 .add-col-header {
     width: 28px;
     min-width: 28px;
-    background: var(--bg-tertiary);
-    border-bottom: 1px solid var(--border-color);
+    background: $bg-tertiary;
+    border-bottom: 1px solid $border-color;
     text-align: center;
     cursor: e-resize;
     user-select: none;
 
     &:hover {
-        background: var(--bg-hover);
+        background: $bg-hover;
     }
 }
 
@@ -733,56 +733,56 @@ watch(
     width: 36px;
     min-width: 36px;
     height: 26px;
-    background: var(--bg-tertiary);
-    border-bottom: 1px solid var(--border-color);
-    border-right: 1px solid var(--border-color);
+    background: $bg-tertiary;
+    border-bottom: 1px solid $border-color;
+    border-right: 1px solid $border-color;
     font-size: 11px;
     font-weight: 500;
-    color: var(--text-muted);
+    color: $text-muted;
     text-align: center;
     user-select: none;
     padding: 0 4px;
     cursor: pointer;
 
     &:hover:not(.row-selected) {
-        background: var(--bg-hover);
+        background: $bg-hover;
     }
 
     &.row-selected {
-        background: var(--accent-color);
+        background: $accent-color;
         color: #fff;
     }
 }
 
 .cell {
     height: 26px;
-    border-bottom: 1px solid var(--border-color);
-    border-right: 1px solid var(--border-color);
+    border-bottom: 1px solid $border-color;
+    border-right: 1px solid $border-color;
     padding: 0;
     position: relative;
     cursor: cell;
     overflow: hidden;
 
     &.header-row {
-        background: var(--bg-secondary);
+        background: $bg-secondary;
         font-weight: 600;
     }
 
     &.selected {
-        outline: 2px solid var(--accent-color);
+        outline: 2px solid $accent-color;
         outline-offset: -1px;
         z-index: 3;
         overflow: visible;
     }
 
     &.in-selection {
-        background: var(--accent-color-alpha, rgba(66, 133, 244, 0.12));
+        background: $accent-color-alpha;
         z-index: 1;
     }
 
     &.in-fill {
-        background: var(--accent-color-alpha, rgba(66, 133, 244, 0.12));
-        outline: 1px dashed var(--accent-color);
+        background: $accent-color-alpha;
+        outline: 1px dashed $accent-color;
         outline-offset: -1px;
         z-index: 1;
     }
@@ -797,7 +797,7 @@ watch(
     }
 
     &:hover:not(.selected):not(.in-selection) {
-        background: var(--accent-color-alpha);
+        background: $accent-color-alpha;
     }
 }
 
@@ -806,13 +806,13 @@ watch(
     padding: 0 6px;
     line-height: 26px;
     font-size: 12px;
-    color: var(--text-primary);
+    color: $text-primary;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
 
     &.error-value {
-        color: var(--danger-color);
+        color: $danger-color;
         font-size: 11px;
     }
 
@@ -835,7 +835,7 @@ watch(
     }
 
     &.type-url {
-        color: var(--accent-color, #4285f4);
+        color: $accent-color;
         text-decoration: underline;
         text-underline-offset: 2px;
         cursor: default;
@@ -858,14 +858,14 @@ watch(
     border: none;
     border-radius: 3px;
     background: transparent;
-    color: var(--accent-color, #4285f4);
+    color: $accent-color;
     cursor: pointer;
     opacity: 0;
     pointer-events: none;
     z-index: 3;
 
     &:hover {
-        background: var(--accent-color-alpha, rgba(66, 133, 244, 0.15));
+        background: $accent-color-alpha;
     }
 }
 
@@ -885,8 +885,8 @@ watch(
     padding: 0 6px;
     font-size: 12px;
     font-family: inherit;
-    color: var(--text-primary);
-    background: var(--bg-primary);
+    color: $text-primary;
+    background: $bg-primary;
     z-index: 2;
 }
 
@@ -913,7 +913,7 @@ watch(
     bottom: -4px;
     width: 8px;
     height: 8px;
-    background: var(--accent-color);
+    background: $accent-color;
     border: 1.5px solid #fff;
     border-radius: 1px;
     cursor: crosshair;
@@ -921,7 +921,7 @@ watch(
     pointer-events: auto;
 
     :root[data-theme='dark'] & {
-        border-color: var(--bg-primary);
+        border-color: $bg-primary;
     }
 }
 
@@ -936,46 +936,46 @@ tr.reorder-row-source > td {
 }
 
 tr.reorder-row-drop-before > td {
-    box-shadow: inset 0 2px 0 0 var(--accent-color);
+    box-shadow: inset 0 2px 0 0 $accent-color;
 }
 
 tr.reorder-row-drop-after > td {
-    box-shadow: inset 0 -2px 0 0 var(--accent-color);
+    box-shadow: inset 0 -2px 0 0 $accent-color;
 }
 
 .row-header.reorder-drop-before {
-    box-shadow: inset 0 2px 0 0 var(--accent-color);
+    box-shadow: inset 0 2px 0 0 $accent-color;
 }
 
 .row-header.reorder-drop-after {
-    box-shadow: inset 0 -2px 0 0 var(--accent-color);
+    box-shadow: inset 0 -2px 0 0 $accent-color;
 }
 
 .col-header.reorder-drop-before {
-    box-shadow: inset 2px 0 0 0 var(--accent-color);
+    box-shadow: inset 2px 0 0 0 $accent-color;
 }
 
 .col-header.reorder-drop-after {
-    box-shadow: inset -2px 0 0 0 var(--accent-color);
+    box-shadow: inset -2px 0 0 0 $accent-color;
 }
 
 .add-row-cell {
     height: 24px;
-    background: var(--bg-tertiary);
+    background: $bg-tertiary;
     text-align: center;
     cursor: s-resize;
     border-bottom: none;
     user-select: none;
 
     &:hover {
-        background: var(--bg-hover);
+        background: $bg-hover;
     }
 }
 
 .add-handle {
     font-size: 12px;
     font-weight: 700;
-    color: var(--text-muted);
+    color: $text-muted;
     line-height: 24px;
     letter-spacing: 1px;
 }

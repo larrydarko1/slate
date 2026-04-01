@@ -270,8 +270,8 @@ function ctxDelete() {
     align-items: center;
     height: 32px;
     min-height: 32px;
-    background: var(--bg-tertiary);
-    border-top: 1px solid var(--border-color);
+    background: $bg-tertiary;
+    border-top: 1px solid $border-color;
     padding: 0 4px;
     gap: 2px;
     user-select: none;
@@ -299,7 +299,7 @@ function ctxDelete() {
     border-radius: 6px;
     font-size: 12px;
     font-weight: 500;
-    color: var(--text-muted);
+    color: $text-muted;
     cursor: pointer;
     white-space: nowrap;
     transition:
@@ -308,20 +308,20 @@ function ctxDelete() {
     position: relative;
 
     &:hover {
-        background: var(--bg-hover);
-        color: var(--text-primary);
+        background: $bg-hover;
+        color: $text-primary;
     }
 
     &.active {
-        background: var(--bg-primary);
-        color: var(--text-primary);
-        box-shadow: var(--shadow-sm);
+        background: $bg-primary;
+        color: $text-primary;
+        box-shadow: $shadow-sm;
     }
 
     &.formula-source {
-        outline: 2px solid var(--accent-color);
+        outline: 2px solid $accent-color;
         outline-offset: -2px;
-        color: var(--accent-color);
+        color: $accent-color;
     }
 
     &.dragging {
@@ -335,7 +335,7 @@ function ctxDelete() {
         top: 4px;
         bottom: 4px;
         width: 2px;
-        background: var(--accent-color);
+        background: $accent-color;
         border-radius: 1px;
         pointer-events: none;
     }
@@ -357,9 +357,9 @@ function ctxDelete() {
 
 .canvas-tab-rename {
     background: transparent;
-    border: 1px solid var(--accent-color);
+    border: 1px solid $accent-color;
     border-radius: 3px;
-    color: var(--text-primary);
+    color: $text-primary;
     font-size: 12px;
     font-weight: 500;
     padding: 0 4px;
@@ -377,7 +377,7 @@ function ctxDelete() {
     border-radius: 4px;
     border: none;
     background: transparent;
-    color: var(--text-muted);
+    color: $text-muted;
     padding: 0;
     cursor: pointer;
     opacity: 0;
@@ -391,8 +391,8 @@ function ctxDelete() {
     }
 
     &:hover {
-        background: var(--danger-color-alpha);
-        color: var(--danger-color);
+        background: $danger-color-alpha;
+        color: $danger-color;
     }
 }
 
@@ -405,7 +405,7 @@ function ctxDelete() {
     border-radius: 6px;
     border: none;
     background: transparent;
-    color: var(--text-muted);
+    color: $text-muted;
     cursor: pointer;
     flex-shrink: 0;
     transition:
@@ -414,8 +414,8 @@ function ctxDelete() {
     padding: 0;
 
     &:hover:not(:disabled) {
-        background: var(--bg-hover);
-        color: var(--text-primary);
+        background: $bg-hover;
+        color: $text-primary;
     }
 
     &:disabled {
@@ -445,7 +445,7 @@ function ctxDelete() {
     border-radius: 5px;
     border: none;
     background: transparent;
-    color: var(--text-muted);
+    color: $text-muted;
     cursor: pointer;
     padding: 0;
     transition:
@@ -453,8 +453,8 @@ function ctxDelete() {
         color 0.15s;
 
     &:hover:not(:disabled) {
-        background: var(--bg-hover);
-        color: var(--text-primary);
+        background: $bg-hover;
+        color: $text-primary;
     }
 
     &:disabled {
@@ -466,7 +466,7 @@ function ctxDelete() {
 .zoom-label {
     font-size: 11px;
     font-weight: 500;
-    color: var(--text-muted);
+    color: $text-muted;
     min-width: 40px;
     text-align: center;
     border: none;
@@ -480,8 +480,8 @@ function ctxDelete() {
         color 0.15s;
 
     &:hover {
-        background: var(--bg-hover);
-        color: var(--text-primary);
+        background: $bg-hover;
+        color: $text-primary;
     }
 }
 
@@ -495,10 +495,10 @@ function ctxDelete() {
 .canvas-ctx-menu {
     position: fixed;
     z-index: 10000;
-    background: var(--bg-primary);
-    border: 1px solid var(--border-color);
+    background: $bg-primary;
+    border: 1px solid $border-color;
     border-radius: 8px;
-    box-shadow: var(--shadow-lg);
+    box-shadow: $shadow-lg;
     padding: 4px;
     min-width: 140px;
 
@@ -511,19 +511,19 @@ function ctxDelete() {
         font-weight: 500;
         border: none;
         background: transparent;
-        color: var(--text-primary);
+        color: $text-primary;
         border-radius: 5px;
         cursor: pointer;
         font-family: inherit;
 
         &:hover {
-            background: var(--bg-hover);
+            background: $bg-hover;
         }
 
         &.danger {
-            color: var(--danger-color);
+            color: $danger-color;
             &:hover {
-                background: var(--danger-color-alpha);
+                background: $danger-color-alpha;
             }
         }
     }

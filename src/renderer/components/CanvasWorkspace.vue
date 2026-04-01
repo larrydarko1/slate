@@ -130,7 +130,7 @@ function onWheel(e: WheelEvent) {
     position: absolute;
     inset: 0;
     z-index: 0;
-    background-color: var(--bg-secondary);
+    background-color: $bg-secondary;
     background-size: 24px 24px;
     pointer-events: all;
 }
@@ -158,13 +158,13 @@ function onWheel(e: WheelEvent) {
 .empty-title {
     font-size: 18px;
     font-weight: 600;
-    color: var(--text-muted);
+    color: $text-muted;
     margin: 0 0 4px;
 }
 
 .empty-sub {
     font-size: 13px;
-    color: var(--text3);
+    color: $text3;
     margin: 0;
 }
 </style>

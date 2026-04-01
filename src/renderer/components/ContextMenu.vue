@@ -63,12 +63,12 @@ defineExpose({ open, close });
 .context-menu {
     position: absolute;
     min-width: 180px;
-    background: var(--bg-primary);
-    border: 1px solid var(--border-color);
+    background: $bg-primary;
+    border: 1px solid $border-color;
     border-radius: 10px;
     padding: 4px;
     box-shadow:
-        var(--shadow-lg),
+        $shadow-lg,
         0 0 0 1px rgba(0, 0, 0, 0.04);
     z-index: 10001;
 }
@@ -76,26 +76,26 @@ defineExpose({ open, close });
 .context-menu-item {
     padding: 6px 12px;
     font-size: 12px;
-    color: var(--text-primary);
+    color: $text-primary;
     cursor: pointer;
     user-select: none;
     border-radius: 6px;
 
     &:hover:not(.separator) {
-        background: var(--bg-hover);
+        background: $bg-hover;
     }
 
     &.separator {
         height: 1px;
         margin: 3px 6px;
         padding: 0;
-        background: var(--border-color);
+        background: $border-color;
         cursor: default;
         border-radius: 0;
     }
 
     &.danger {
-        color: var(--danger-color);
+        color: $danger-color;
     }
 }
 </style>

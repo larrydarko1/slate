@@ -680,8 +680,8 @@ function applyTheme() {
     align-items: center;
     height: 40px;
     padding: 0 10px;
-    background: var(--bg-primary);
-    border-bottom: 1px solid var(--border-color);
+    background: $bg-primary;
+    border-bottom: 1px solid $border-color;
     user-select: none;
     flex-shrink: 0;
     gap: 2px;
@@ -699,7 +699,7 @@ function applyTheme() {
 .toolbar-sep {
     width: 1px;
     height: 16px;
-    background: var(--border-color);
+    background: $border-color;
     margin: 0 6px;
     flex-shrink: 0;
 }
@@ -715,7 +715,7 @@ function applyTheme() {
     align-items: center;
     padding: 0 4px;
     flex-shrink: 0;
-    color: var(--text-primary);
+    color: $text-primary;
     opacity: 0.5;
     -webkit-app-region: no-drag;
 
@@ -739,7 +739,7 @@ function applyTheme() {
     border: none;
     border-radius: 6px;
     background: transparent;
-    color: var(--text-muted);
+    color: $text-muted;
     font-size: 12px;
     font-weight: 500;
     cursor: pointer;
@@ -753,12 +753,12 @@ function applyTheme() {
     }
 
     &:hover {
-        background: var(--bg-hover);
-        color: var(--text-primary);
+        background: $bg-hover;
+        color: $text-primary;
     }
 
     &:active {
-        background: var(--bg-selected);
+        background: $bg-selected;
     }
 
     &.has-label {
@@ -780,7 +780,7 @@ function applyTheme() {
 
 .tb-active {
     background: var(--accent-color-alpha, rgba(66, 133, 244, 0.12)) !important;
-    color: var(--accent-color) !important;
+    color: $accent-color !important;
 }
 
 .tb-font-size {
@@ -791,8 +791,8 @@ function applyTheme() {
     height: 26px;
     font-size: 12px;
     font-weight: 600;
-    color: var(--text-primary);
-    background: var(--bg-tertiary);
+    color: $text-primary;
+    background: $bg-tertiary;
     border-radius: 4px;
     padding: 0 4px;
     user-select: none;
@@ -805,29 +805,29 @@ function applyTheme() {
     gap: 8px;
     margin-top: 6px;
     padding-top: 6px;
-    border-top: 1px solid var(--border-color);
+    border-top: 1px solid $border-color;
 }
 
 .color-custom-label {
     font-size: 11px;
-    color: var(--text-muted);
+    color: $text-muted;
     font-weight: 500;
 }
 
 .tb-border-select {
     flex: 1;
     height: 22px;
-    border: 1px solid var(--border-color);
+    border: 1px solid $border-color;
     border-radius: 4px;
-    background: var(--bg-primary);
-    color: var(--text-primary);
+    background: $bg-primary;
+    color: $text-primary;
     font-size: 11px;
     padding: 0 4px;
     cursor: pointer;
     outline: none;
 
     &:focus {
-        border-color: var(--accent-color);
+        border-color: $accent-color;
     }
 }
 </style>

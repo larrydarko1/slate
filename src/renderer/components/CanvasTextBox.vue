@@ -164,12 +164,12 @@ function finishTextEdit() {
         box-shadow 0.15s;
 
     &:hover:not(.active) {
-        border-color: var(--border-color);
+        border-color: $border-color;
     }
 
     &.active {
-        border-color: var(--accent-color);
-        box-shadow: 0 0 0 1px var(--accent-color);
+        border-color: $accent-color;
+        box-shadow: 0 0 0 1px $accent-color;
     }
 
     &.editing {
@@ -186,7 +186,7 @@ function finishTextEdit() {
     overflow: hidden;
     font-family: inherit;
     line-height: 1.5;
-    color: var(--text-primary);
+    color: $text-primary;
 }
 
 .textbox-placeholder {
@@ -194,7 +194,7 @@ function finishTextEdit() {
     inset: 0;
     padding: 8px 10px;
     font-size: 14px;
-    color: var(--text-muted);
+    color: $text-muted;
     opacity: 0.5;
     pointer-events: none;
     line-height: 1.5;
@@ -212,7 +212,7 @@ function finishTextEdit() {
     line-height: 1.5;
     white-space: pre-wrap;
     word-wrap: break-word;
-    color: var(--text-primary);
+    color: $text-primary;
 }
 
 /* Resize handles */
@@ -256,7 +256,7 @@ function finishTextEdit() {
     height: 8px;
     cursor: se-resize;
     border-radius: 50%;
-    background: var(--accent-color);
+    background: $accent-color;
 }
 .rh-ne {
     right: -4px;
@@ -265,7 +265,7 @@ function finishTextEdit() {
     height: 8px;
     cursor: ne-resize;
     border-radius: 50%;
-    background: var(--accent-color);
+    background: $accent-color;
 }
 .rh-nw {
     left: -4px;
@@ -274,7 +274,7 @@ function finishTextEdit() {
     height: 8px;
     cursor: nw-resize;
     border-radius: 50%;
-    background: var(--accent-color);
+    background: $accent-color;
 }
 .rh-sw {
     left: -4px;
@@ -283,7 +283,7 @@ function finishTextEdit() {
     height: 8px;
     cursor: sw-resize;
     border-radius: 50%;
-    background: var(--accent-color);
+    background: $accent-color;
 }
 
 .textbox-delete {
@@ -293,9 +293,9 @@ function finishTextEdit() {
     width: 20px;
     height: 20px;
     border-radius: 50%;
-    border: 1px solid var(--border-color);
-    background: var(--bg-primary);
-    color: var(--text-muted);
+    border: 1px solid $border-color;
+    background: $bg-primary;
+    color: $text-muted;
     font-size: 14px;
     line-height: 1;
     cursor: pointer;
@@ -303,12 +303,12 @@ function finishTextEdit() {
     align-items: center;
     justify-content: center;
     z-index: 11;
-    box-shadow: var(--shadow-sm);
+    box-shadow: $shadow-sm;
 
     &:hover {
-        background: var(--danger-color-alpha);
-        color: var(--danger-color);
-        border-color: var(--danger-color);
+        background: $danger-color-alpha;
+        color: $danger-color;
+        border-color: $danger-color;
     }
 }
 </style>

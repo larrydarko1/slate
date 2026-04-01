@@ -104,7 +104,7 @@ function onCustomColor(e: Event) {
     border: none;
     border-radius: 6px;
     background: transparent;
-    color: var(--text-muted);
+    color: $text-muted;
     font-size: 12px;
     font-weight: 500;
     cursor: pointer;
@@ -118,12 +118,12 @@ function onCustomColor(e: Event) {
     }
 
     &:hover {
-        background: var(--bg-hover);
-        color: var(--text-primary);
+        background: $bg-hover;
+        color: $text-primary;
     }
 
     &:active {
-        background: var(--bg-selected);
+        background: $bg-selected;
     }
 }
 
@@ -161,10 +161,10 @@ function onCustomColor(e: Event) {
     top: 100%;
     left: 0;
     margin-top: 4px;
-    background: var(--bg-primary);
-    border: 1px solid var(--border-color);
+    background: $bg-primary;
+    border: 1px solid $border-color;
     border-radius: 10px;
-    box-shadow: var(--shadow-lg);
+    box-shadow: $shadow-lg;
     padding: 10px;
     z-index: 200;
     width: 240px;
@@ -178,7 +178,7 @@ function onCustomColor(e: Event) {
 .color-dropdown-header {
     font-size: 11px;
     font-weight: 600;
-    color: var(--text-muted);
+    color: $text-muted;
     margin-bottom: 8px;
     letter-spacing: 0.02em;
 }
@@ -208,7 +208,7 @@ function onCustomColor(e: Event) {
     }
 
     &.active {
-        outline: 2px solid var(--accent-color);
+        outline: 2px solid $accent-color;
         outline-offset: 1px;
     }
 
@@ -226,14 +226,14 @@ function onCustomColor(e: Event) {
     border: none;
     border-radius: 5px;
     background: transparent;
-    color: var(--text-muted);
+    color: $text-muted;
     font-size: 11px;
     cursor: pointer;
     transition: background 0.1s;
 
     &:hover {
-        background: var(--bg-hover);
-        color: var(--text-primary);
+        background: $bg-hover;
+        color: $text-primary;
     }
 }
 
@@ -243,19 +243,19 @@ function onCustomColor(e: Event) {
     gap: 8px;
     margin-top: 6px;
     padding-top: 6px;
-    border-top: 1px solid var(--border-color);
+    border-top: 1px solid $border-color;
 }
 
 .color-custom-label {
     font-size: 11px;
-    color: var(--text-muted);
+    color: $text-muted;
     font-weight: 500;
 }
 
 .color-custom-input {
     width: 28px;
     height: 22px;
-    border: 1px solid var(--border-color);
+    border: 1px solid $border-color;
     border-radius: 4px;
     padding: 1px;
     cursor: pointer;
