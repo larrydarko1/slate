@@ -1,9 +1,19 @@
 {
     "name": "slate",
-    "private": true,
     "version": "1.3.0",
+    "description": "A free, canvas-based spreadsheet app for desktop.",
+    "homepage": "https://github.com/larrydarko1/slate#readme",
+    "bugs": {
+        "url": "https://github.com/larrydarko1/slate/issues"
+    },
+    "license": "MIT",
+    "author": "Lorenzo Mazzola",
     "type": "module",
     "main": "out/main/index.js",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/larrydarko1/slate.git"
+    },
     "scripts": {
         "dev": "electron-vite dev",
         "build": "vue-tsc -b && electron-vite build",
@@ -51,22 +61,12 @@
         "vitest": "^3.2.4",
         "vue-tsc": "^2.2.10"
     },
-    "description": "A free, canvas-based spreadsheet app for desktop.",
-    "author": "Lorenzo Mazzola",
-    "license": "MIT",
-    "lint-staged": {
-        "*.{ts,vue}": [
-            "eslint --fix",
-            "prettier --write"
-        ],
-        "*.{scss,json,md}": [
-            "prettier --write"
-        ]
+    "engines": {
+        "node": ">=20",
+        "npm": ">=10"
     },
-    "repository": {
-        "type": "git",
-        "url": "https://github.com/larrydarko1/slate.git"
-    },
+    "private": true,
+    "packageManager": "npm@11.11.0",
     "build": {
         "appId": "com.slate.app",
         "productName": "Slate",
@@ -135,5 +135,14 @@
             ],
             "category": "Utility"
         }
+    },
+    "lint-staged": {
+        "*.{ts,vue}": [
+            "eslint --fix",
+            "prettier --write"
+        ],
+        "*.{scss,json,md}": [
+            "prettier --write"
+        ]
     }
 }
