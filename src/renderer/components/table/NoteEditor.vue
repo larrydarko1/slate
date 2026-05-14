@@ -1,8 +1,4 @@
 <script setup lang="ts">
-// NoteEditor — modal dialog for creating/editing cell notes.
-// Owns: editor rendering, textarea focus.
-// Does NOT own: note state management (useTableNotes.ts).
-
 import { ref, watch, nextTick } from 'vue';
 
 const props = defineProps<{

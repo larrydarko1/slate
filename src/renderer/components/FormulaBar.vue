@@ -1,8 +1,4 @@
 <script setup lang="ts">
-// FormulaBar — displays and edits the active cell's value/formula with syntax highlighting.
-// Owns: cell name display, formula input, type/format selectors, formula token coloring.
-// Does NOT own: formula evaluation (engine/formula.ts), cell state (useCells).
-
 import { computed, inject, ref, watch } from 'vue';
 import { SPREADSHEET_KEY } from '../composables/useSpreadsheet';
 import { indexToColumnLetter } from '../types/spreadsheet';
@@ -93,6 +89,16 @@ const showRichOverlay = computed(() => {
     return false;
 });
 
+// Focus the input when editing is triggered from a cell
+watch(
+    () => ss.isEditing.value,
+    (editing) => {
+        if (editing && document.activeElement !== inputRef.value) {
+            // Don't steal focus from inline cell editing
+        }
+    },
+);
+
 function onFocus() {
     if (!activeCell.value) return;
     if (!ss.isEditing.value) ss.startEditing();
@@ -127,16 +133,6 @@ function onTab() {
     ss.commitEdit();
     ss.moveSelection(1, 0);
 }
-
-// Focus the input when editing is triggered from a cell
-watch(
-    () => ss.isEditing.value,
-    (editing) => {
-        if (editing && document.activeElement !== inputRef.value) {
-            // Don't steal focus from inline cell editing
-        }
-    },
-);
 </script>
 
 <template>

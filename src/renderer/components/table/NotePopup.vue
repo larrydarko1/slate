@@ -1,8 +1,4 @@
 <script setup lang="ts">
-// NotePopup — hover popup that shows cell note content.
-// Owns: popup rendering.
-// Does NOT own: note state or popup visibility (useTableNotes.ts).
-
 defineProps<{
     visible: boolean;
     x: number;

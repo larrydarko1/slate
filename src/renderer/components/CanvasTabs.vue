@@ -1,8 +1,4 @@
 <script setup lang="ts">
-// CanvasTabs — tab bar for switching, adding, renaming, and reordering canvases.
-// Owns: tab drag-reorder, rename editing, tab context menu, zoom controls.
-// Does NOT own: canvas state (useCanvases), spreadsheet data (useSpreadsheet).
-
 import { inject, nextTick, ref, computed } from 'vue';
 import { SPREADSHEET_KEY } from '../composables/useSpreadsheet';
 import { MAX_CANVASES, createDefaultCanvas } from '../types/spreadsheet';
@@ -21,10 +17,13 @@ const formulaSourceCanvasId = computed(() => {
     return info.canvas.id !== ss.activeCanvasId.value ? info.canvas.id : null;
 });
 
-// ── Drag & drop reorder ──
 const dragIndex = ref<number | null>(null);
 const dropTarget = ref<number | null>(null);
 const dropSide = ref<'before' | 'after' | null>(null);
+const renamingId = ref<string | null>(null);
+const renameValue = ref('');
+const renameInputRef = ref<HTMLInputElement[] | null>(null);
+const contextMenu = ref<{ x: number; y: number; canvasId: string } | null>(null);
 
 function onDragStart(e: DragEvent, index: number) {
     if (renamingId.value) {
@@ -80,11 +79,6 @@ function resetDrag() {
     dropSide.value = null;
 }
 
-// ── Rename ──
-const renamingId = ref<string | null>(null);
-const renameValue = ref('');
-const renameInputRef = ref<HTMLInputElement[] | null>(null);
-
 function startRename(id: string, currentName: string) {
     renamingId.value = id;
     renameValue.value = currentName;
@@ -108,15 +102,11 @@ function cancelRename() {
     renamingId.value = null;
 }
 
-// ── Close / Remove ──
 function confirmRemove(id: string, name: string) {
     if (confirm(`Delete canvas "${name}"? This cannot be undone.`)) {
         ss.removeCanvas(id);
     }
 }
-
-// ── Context menu ──
-const contextMenu = ref<{ x: number; y: number; canvasId: string } | null>(null);
 
 function onContextMenu(e: MouseEvent, canvasId: string) {
     contextMenu.value = { x: e.clientX, y: e.clientY, canvasId };

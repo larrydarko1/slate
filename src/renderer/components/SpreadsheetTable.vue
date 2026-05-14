@@ -1,10 +1,4 @@
 <script setup lang="ts">
-// SpreadsheetTable — interactive table grid with cells, headers, and inline editing.
-// Owns: cell interaction orchestration, keyboard navigation, cell editing handlers.
-// Does NOT own: cell rendering (useTableCellRendering), fill (useFillHandle),
-//   reorder (useRowColReorder), context menus (useTableContextMenus), notes (useTableNotes),
-//   table drag/resize (useTableStructure).
-
 import { computed, inject, nextTick, ref, toRef, watch, type PropType } from 'vue';
 import type { SpreadsheetTable } from '../types/spreadsheet';
 import { SPREADSHEET_KEY } from '../composables/useSpreadsheet';
@@ -38,26 +32,9 @@ const ctxMenu = ref<InstanceType<typeof ContextMenu> | null>(null);
 const editingName = ref(false);
 const localName = ref(props.table.name);
 
-function startNameEdit() {
-    localName.value = props.table.name;
-    editingName.value = true;
-    nextTick(() => nameInputRef.value?.select());
-}
-
-function commitName() {
-    editingName.value = false;
-    if (localName.value.trim()) ss.renameTable(props.table.id, localName.value.trim());
-}
-
-function cancelNameEdit() {
-    editingName.value = false;
-    localName.value = props.table.name;
-}
-
 // ── Composable wiring ────────────────────────────────────────────────────────
 
 const { startDrag, startColResize, startAddRowDrag, startAddColDrag } = useTableStructure(tableRef, ss, editingName);
-
 const { isSelectionCorner, isCellInFillPreview, startFillDrag } = useFillHandle(tableRef, ss, tableEl);
 
 const {
@@ -116,6 +93,22 @@ const tableStyle = computed(() => ({
 let isDragging = false;
 let isChartDragging = false;
 let chartDragStart: { ci: number; ri: number } | null = null;
+
+function startNameEdit() {
+    localName.value = props.table.name;
+    editingName.value = true;
+    nextTick(() => nameInputRef.value?.select());
+}
+
+function commitName() {
+    editingName.value = false;
+    if (localName.value.trim()) ss.renameTable(props.table.id, localName.value.trim());
+}
+
+function cancelNameEdit() {
+    editingName.value = false;
+    localName.value = props.table.name;
+}
 
 function onCellMouseDown(ci: number, ri: number, e: MouseEvent) {
     // Chart data selection mode

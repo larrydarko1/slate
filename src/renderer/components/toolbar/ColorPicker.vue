@@ -1,8 +1,4 @@
 <script setup lang="ts">
-// ColorPicker — reusable color picker dropdown with palette grid, clear, and custom input.
-// Owns: dropdown toggle, color grid rendering, clear button, custom color input.
-// Does NOT own: what happens when a color is applied (parent handles via events).
-
 import { computed } from 'vue';
 
 const props = defineProps<{

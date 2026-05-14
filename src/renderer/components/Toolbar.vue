@@ -1,8 +1,4 @@
 <script setup lang="ts">
-// Toolbar — main formatting toolbar for cells and text boxes.
-// Owns: font/color/type pickers, cell formatting actions, text box style controls.
-// Does NOT own: cell state (useCells), text box state (useTextBoxes), undo/redo (useUndoRedo).
-
 import { ref, computed, onMounted, onBeforeUnmount, inject } from 'vue';
 import { SPREADSHEET_KEY } from '../composables/useSpreadsheet';
 import type { TextBox } from '../types/spreadsheet';
@@ -24,7 +20,7 @@ defineEmits<{
 
 const ss = inject(SPREADSHEET_KEY)!;
 
-// ── TextBox formatting ──
+// ── TextBox formatting ──––––––––––––––––––––––––––––––––––––––––––––––––––––––
 
 const hasActiveTextBox = computed(() => !!ss.activeTextBoxId.value);
 
@@ -37,6 +33,102 @@ const tbColorMenuType = ref<'tbText' | 'tbFill' | 'tbBorder' | null>(null);
 const tbLastTextColor = ref('#000000');
 const tbLastFillColor = ref('#FFFFFF');
 const tbLastBorderColor = ref('#CCCCCC');
+
+// ── Unified formatting (works for both cells and text boxes) ──––––––––––––––––––
+
+const fmtIsBold = computed(() => {
+    if (hasActiveTextBox.value) return activeTextBoxData.value?.fontWeight === 'bold';
+    const fmt = ss.getActiveCellFormat();
+    return fmt?.bold ?? false;
+});
+
+const fmtIsItalic = computed(() => {
+    if (hasActiveTextBox.value) return activeTextBoxData.value?.fontStyle === 'italic';
+    const fmt = ss.getActiveCellFormat();
+    return fmt?.italic ?? false;
+});
+
+const fmtAlign = computed<'left' | 'center' | 'right'>(() => {
+    if (hasActiveTextBox.value) return activeTextBoxData.value?.align ?? 'left';
+    const fmt = ss.getActiveCellFormat();
+    return fmt?.align ?? 'left';
+});
+
+// ── Type selector ──––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
+
+const hasActiveCell = computed(() => !!ss.activeCell.value);
+
+// ── Cell coloring ──––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
+
+const colorMenuType = ref<'text' | 'fill' | null>(null);
+const lastTextColor = ref('#000000');
+const lastFillColor = ref('#FFEB3B');
+const isDark = ref(false);
+
+const currentTextColor = computed(() => {
+    const fmt = ss.getActiveCellFormat();
+    return fmt?.textColor ?? null;
+});
+
+const currentFillColor = computed(() => {
+    const fmt = ss.getActiveCellFormat();
+    return fmt?.bgColor ?? null;
+});
+
+// ── Theme ──–––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––-
+
+onMounted(() => {
+    const saved = localStorage.getItem('slate-theme');
+    if (saved) {
+        isDark.value = saved === 'dark';
+    } else {
+        isDark.value = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    }
+    applyTheme();
+    document.addEventListener('click', onClickOutside);
+});
+
+onBeforeUnmount(() => {
+    document.removeEventListener('click', onClickOutside);
+});
+
+function applyTextColor(color: string) {
+    ss.setSelectionFormat({ textColor: color });
+    lastTextColor.value = color;
+    colorMenuType.value = null;
+}
+
+function applyFillColor(color: string) {
+    ss.setSelectionFormat({ bgColor: color });
+    lastFillColor.value = color;
+    colorMenuType.value = null;
+}
+
+function clearTextColor() {
+    ss.setSelectionFormat({ textColor: undefined });
+    colorMenuType.value = null;
+}
+
+function clearFillColor() {
+    ss.setSelectionFormat({ bgColor: undefined });
+    colorMenuType.value = null;
+}
+
+function onClickOutside() {
+    // ColorPicker uses @click.stop internally, so any click reaching here is outside
+    colorMenuType.value = null;
+    tbColorMenuType.value = null;
+}
+
+function toggleTheme() {
+    isDark.value = !isDark.value;
+    applyTheme();
+    localStorage.setItem('slate-theme', isDark.value ? 'dark' : 'light');
+}
+
+function applyTheme() {
+    document.documentElement.setAttribute('data-theme', isDark.value ? 'dark' : 'light');
+}
 
 function tbUpdateProp<K extends keyof TextBox>(prop: K, value: TextBox[K]) {
     const id = ss.activeTextBoxId.value;
@@ -90,26 +182,6 @@ function tbApplyBorderColor(color: string) {
     tbColorMenuType.value = null;
 }
 
-// ── Unified formatting (works for both cells and text boxes) ──
-
-const fmtIsBold = computed(() => {
-    if (hasActiveTextBox.value) return activeTextBoxData.value?.fontWeight === 'bold';
-    const fmt = ss.getActiveCellFormat();
-    return fmt?.bold ?? false;
-});
-
-const fmtIsItalic = computed(() => {
-    if (hasActiveTextBox.value) return activeTextBoxData.value?.fontStyle === 'italic';
-    const fmt = ss.getActiveCellFormat();
-    return fmt?.italic ?? false;
-});
-
-const fmtAlign = computed<'left' | 'center' | 'right'>(() => {
-    if (hasActiveTextBox.value) return activeTextBoxData.value?.align ?? 'left';
-    const fmt = ss.getActiveCellFormat();
-    return fmt?.align ?? 'left';
-});
-
 function fmtToggleBold() {
     if (hasActiveTextBox.value) {
         tbToggleBold();
@@ -134,83 +206,6 @@ function fmtSetAlign(a: 'left' | 'center' | 'right') {
     } else if (hasActiveCell.value) {
         ss.setSelectionFormat({ align: a });
     }
-}
-
-// ── Type selector ──
-
-const hasActiveCell = computed(() => !!ss.activeCell.value);
-
-// ── Cell coloring ──
-
-const colorMenuType = ref<'text' | 'fill' | null>(null);
-const lastTextColor = ref('#000000');
-const lastFillColor = ref('#FFEB3B');
-
-const currentTextColor = computed(() => {
-    const fmt = ss.getActiveCellFormat();
-    return fmt?.textColor ?? null;
-});
-
-const currentFillColor = computed(() => {
-    const fmt = ss.getActiveCellFormat();
-    return fmt?.bgColor ?? null;
-});
-
-function applyTextColor(color: string) {
-    ss.setSelectionFormat({ textColor: color });
-    lastTextColor.value = color;
-    colorMenuType.value = null;
-}
-
-function applyFillColor(color: string) {
-    ss.setSelectionFormat({ bgColor: color });
-    lastFillColor.value = color;
-    colorMenuType.value = null;
-}
-
-function clearTextColor() {
-    ss.setSelectionFormat({ textColor: undefined });
-    colorMenuType.value = null;
-}
-
-function clearFillColor() {
-    ss.setSelectionFormat({ bgColor: undefined });
-    colorMenuType.value = null;
-}
-
-function onClickOutside() {
-    // ColorPicker uses @click.stop internally, so any click reaching here is outside
-    colorMenuType.value = null;
-    tbColorMenuType.value = null;
-}
-
-// ── Theme ──
-
-const isDark = ref(false);
-
-onMounted(() => {
-    const saved = localStorage.getItem('slate-theme');
-    if (saved) {
-        isDark.value = saved === 'dark';
-    } else {
-        isDark.value = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    }
-    applyTheme();
-    document.addEventListener('click', onClickOutside);
-});
-
-onBeforeUnmount(() => {
-    document.removeEventListener('click', onClickOutside);
-});
-
-function toggleTheme() {
-    isDark.value = !isDark.value;
-    applyTheme();
-    localStorage.setItem('slate-theme', isDark.value ? 'dark' : 'light');
-}
-
-function applyTheme() {
-    document.documentElement.setAttribute('data-theme', isDark.value ? 'dark' : 'light');
 }
 </script>
 

@@ -1,8 +1,4 @@
 <script setup lang="ts">
-// ToolbarFontPicker — font family dropdown selector.
-// Owns: font menu state, font option list, click-outside handling.
-// Does NOT own: cell state (useCells), text box state (useTextBoxes).
-
 import { ref, computed, onMounted, onBeforeUnmount, inject } from 'vue';
 import { SPREADSHEET_KEY } from '../../composables/useSpreadsheet';
 

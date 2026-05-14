@@ -1,8 +1,4 @@
 <script setup lang="ts">
-// ToolbarTypeSelector — cell type dropdown and decimal place controls.
-// Owns: type menu state, type option list, decimal adjustment.
-// Does NOT own: cell state (useCells), formatting (Toolbar.vue).
-
 import { ref, computed, onMounted, onBeforeUnmount, inject } from 'vue';
 import { SPREADSHEET_KEY } from '../../composables/useSpreadsheet';
 import type { CellDataType } from '../../composables/spreadsheet/engine/cellTypes';
