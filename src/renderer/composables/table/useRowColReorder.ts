@@ -1,6 +1,8 @@
-// useRowColReorder — row/column header selection and drag-to-reorder.
-// Owns: header mousedown/mouseover, reorder drag state, drop position tracking.
-// Does NOT own: cell selection (useSpreadsheet), context menus (useTableContextMenus).
+/**
+ * useRowColReorder — row/column header selection and drag-to-reorder.
+ * Owns: header mousedown/mouseover, reorder drag state, drop position tracking.
+ * Does NOT own: cell selection (useSpreadsheet), context menus (useTableContextMenus).
+ */
 
 import { nextTick, ref, type Ref } from 'vue';
 import type { SpreadsheetTable } from '../../types/spreadsheet';

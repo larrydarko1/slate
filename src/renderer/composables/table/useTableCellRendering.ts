@@ -1,6 +1,8 @@
-// useTableCellRendering — cell display class/style computation for SpreadsheetTable.
-// Owns: cell CSS classes, inline styles, ref highlights, merged cell helpers.
-// Does NOT own: cell data (useSpreadsheet), interaction (SpreadsheetTable.vue).
+/**
+ * useTableCellRendering — cell display class/style computation for SpreadsheetTable.
+ * Owns: cell CSS classes, inline styles, ref highlights, merged cell helpers.
+ * Does NOT own: cell data (useSpreadsheet), interaction (SpreadsheetTable.vue).
+ */
 
 import { computed, type Ref } from 'vue';
 import type { SpreadsheetTable } from '../../types/spreadsheet';

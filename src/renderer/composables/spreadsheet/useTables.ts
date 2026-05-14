@@ -1,6 +1,8 @@
-// useTables — table CRUD, row/column operations, and bulk selection operations.
-// Owns: addTable, removeTable, renameTable, moveTable, row/col add/delete/insert, bulk delete.
-// Does NOT own: reordering (useTableReorder.ts), sorting (useTableSort.ts), cell access (useCells.ts).
+/**
+ * useTables — table CRUD, row/column operations, and bulk selection operations.
+ * Owns: addTable, removeTable, renameTable, moveTable, row/col add/delete/insert, bulk delete.
+ * Does NOT own: reordering (useTableReorder.ts), sorting (useTableSort.ts), cell access (useCells.ts).
+ */
 
 import type { SpreadsheetCoreState } from './state';
 import type { SpreadsheetHelpers } from './helpers';
@@ -8,6 +10,8 @@ import type { SpreadsheetTable, MergedRegion } from '../../types/spreadsheet';
 import { generateId, createEmptyCell, createDefaultTable } from '../../types/spreadsheet';
 import { createTableReorder } from './useTableReorder';
 import { createTableSort } from './useTableSort';
+
+export type SpreadsheetTables = ReturnType<typeof createTables>;
 
 interface TablesDeps {
     findTable: SpreadsheetHelpers['findTable'];
@@ -280,5 +284,3 @@ export function createTables(state: SpreadsheetCoreState, deps: TablesDeps) {
         deleteSelectedColumns,
     };
 }
-
-export type SpreadsheetTables = ReturnType<typeof createTables>;

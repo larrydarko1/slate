@@ -1,6 +1,8 @@
-// useCells — cell access, value setting, formatting, type management, and notes.
-// Owns: getCell, setCellValue, display/raw values, type/format ops, cell notes.
-// Does NOT own: editing state (useEditing.ts), selection (useSelection.ts).
+/**
+ * useCells — cell access, value setting, formatting, type management, and notes.
+ * Owns: getCell, setCellValue, display/raw values, type/format ops, cell notes.
+ * Does NOT own: editing state (useEditing.ts), selection (useSelection.ts).
+ */
 
 import type { SpreadsheetCoreState } from './state';
 import type { SpreadsheetHelpers } from './helpers';
@@ -8,6 +10,8 @@ import type { Cell, CellFormat } from '../../types/spreadsheet';
 import type { CellDataType } from './engine/cellTypes';
 import { generateId, createEmptyCell } from '../../types/spreadsheet';
 import { detectType, formatCellDisplay, getTypeAlignment } from './engine/cellTypes';
+
+export type SpreadsheetCells = ReturnType<typeof createCells>;
 
 interface CellsDeps {
     findTable: SpreadsheetHelpers['findTable'];
@@ -196,5 +200,3 @@ export function createCells(state: SpreadsheetCoreState, deps: CellsDeps) {
         cellHasNote,
     };
 }
-
-export type SpreadsheetCells = ReturnType<typeof createCells>;

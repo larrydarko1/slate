@@ -1,3 +1,12 @@
+/**
+ * Core spreadsheet data types, constants, and factory functions.
+ *
+ * Owns: all domain types (Canvas, SpreadsheetTable, Cell, TextBox, ChartObject,
+ *       and their subtypes), zoom constants, ID generation, and factory helpers.
+ * Does NOT own: formula evaluation (engine/), rendering (components/),
+ *               reactive state (composables/).
+ */
+
 import type { CellDataType } from '../composables/spreadsheet/engine/cellTypes';
 
 export type CellValue = string | number | boolean | null;
@@ -138,6 +147,21 @@ export const ZOOM_PRESETS = [0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 2.0, 3.0, 4.0];
 /** Maximum number of canvases allowed per file */
 export const MAX_CANVASES = 10;
 
+const DEFAULT_CHART_COLORS = [
+    '#4e79a7',
+    '#f28e2b',
+    '#e15759',
+    '#76b7b2',
+    '#59a14f',
+    '#edc948',
+    '#b07aa1',
+    '#ff9da7',
+    '#9c755f',
+    '#bab0ac',
+];
+
+let _idCounter = 0;
+
 export function createDefaultCanvas(name: string): Canvas {
     return {
         id: generateId('canvas'),
@@ -150,9 +174,7 @@ export function createDefaultCanvas(name: string): Canvas {
     };
 }
 
-// ── Helpers ──
-
-let _idCounter = 0;
+// ── Helpers ─────────────────────────────────────────────────────────────────
 
 export function generateId(prefix: string): string {
     return `${prefix}_${Date.now()}_${++_idCounter}`;
@@ -201,19 +223,6 @@ export function createDefaultTextBox(x: number, y: number): TextBox {
         borderRadius: 6,
     };
 }
-
-const DEFAULT_CHART_COLORS = [
-    '#4e79a7',
-    '#f28e2b',
-    '#e15759',
-    '#76b7b2',
-    '#59a14f',
-    '#edc948',
-    '#b07aa1',
-    '#ff9da7',
-    '#9c755f',
-    '#bab0ac',
-];
 
 export function createDefaultChart(x: number, y: number): ChartObject {
     return {

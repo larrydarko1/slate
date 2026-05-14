@@ -1,6 +1,8 @@
-// ElectronAPI — type definitions for the preload bridge (contextBridge).
-// Owns: shape of the window.electronAPI object available in renderer.
-// Does NOT own: implementation (src/preload/index.ts), UI consumers (src/renderer).
+/**
+ * ElectronAPI — type definitions for the preload bridge (contextBridge).
+ * Owns: shape of the window.electronAPI object available in renderer.
+ * Does NOT own: implementation (src/preload/index.ts), UI consumers (src/renderer).
+ */
 
 export interface ElectronAPI {
     isElectron: () => boolean;

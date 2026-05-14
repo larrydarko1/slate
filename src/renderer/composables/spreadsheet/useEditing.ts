@@ -1,9 +1,13 @@
-// useEditing — editing lifecycle, commit, cancel, and active cell clearing.
-// Owns: startEditing, commitEdit, cancelEdit, clearActiveCell.
-// Does NOT own: cell access/values (useCells.ts), selection (useSelection.ts).
+/**
+ * useEditing — editing lifecycle, commit, cancel, and active cell clearing.
+ * Owns: startEditing, commitEdit, cancelEdit, clearActiveCell.
+ * Does NOT own: cell access/values (useCells.ts), selection (useSelection.ts).
+ */
 
 import type { SpreadsheetCoreState } from './state';
 import type { SpreadsheetHelpers } from './helpers';
+
+export type SpreadsheetEditing = ReturnType<typeof createEditing>;
 
 interface EditingDeps {
     findTableGlobal: SpreadsheetHelpers['findTableGlobal'];
@@ -72,5 +76,3 @@ export function createEditing(state: SpreadsheetCoreState, deps: EditingDeps) {
 
     return { startEditing, commitEdit, cancelEdit, clearActiveCell };
 }
-
-export type SpreadsheetEditing = ReturnType<typeof createEditing>;

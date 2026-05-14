@@ -1,13 +1,17 @@
-// useCharts — chart CRUD, data selection (Apple Numbers–style), and reference resolution.
-// Owns: addChart, removeChart, moveChart, resizeChart, updateChart, selectChart,
-//       chart data selection mode, ref building/resolving/highlighting.
-// Does NOT own: cell access (useCells.ts), formula engine (useFormulaEngine.ts).
+/**
+ * useCharts — chart CRUD, data selection (Apple Numbers–style), and reference resolution.
+ * Owns: addChart, removeChart, moveChart, resizeChart, updateChart, selectChart,
+ * chart data selection mode, ref building/resolving/highlighting.
+ * Does NOT own: cell access (useCells.ts), formula engine (useFormulaEngine.ts).
+ */
 
 import type { SpreadsheetCoreState } from './state';
 import type { SpreadsheetHelpers } from './helpers';
 import { CHART_REF_COLORS } from './state';
 import type { ChartObject, SpreadsheetTable, CellValue } from '../../types/spreadsheet';
 import { createDefaultChart, indexToColumnLetter, columnLetterToIndex } from '../../types/spreadsheet';
+
+export type SpreadsheetCharts = ReturnType<typeof createCharts>;
 
 interface ChartsDeps {
     findChart: SpreadsheetHelpers['findChart'];
@@ -393,5 +397,3 @@ export function createCharts(state: SpreadsheetCoreState, deps: ChartsDeps) {
         splitChartRefs,
     };
 }
-
-export type SpreadsheetCharts = ReturnType<typeof createCharts>;

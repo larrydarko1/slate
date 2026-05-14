@@ -1,9 +1,13 @@
-// useTableSort — column sorting for tables.
-// Owns: sortColumn, getSortValue, compareValues.
-// Does NOT own: CRUD (useTables.ts), reordering (useTableReorder.ts).
+/**
+ * useTableSort — column sorting for tables.
+ * Owns: sortColumn, getSortValue, compareValues.
+ * Does NOT own: CRUD (useTables.ts), reordering (useTableReorder.ts).
+ */
 
 import type { SpreadsheetHelpers } from './helpers';
 import type { SpreadsheetTable, Cell, CellValue, MergedRegion } from '../../types/spreadsheet';
+
+export type TableSort = ReturnType<typeof createTableSort>;
 
 interface SortDeps {
     findTable: SpreadsheetHelpers['findTable'];
@@ -76,5 +80,3 @@ export function createTableSort(deps: SortDeps) {
 
     return { sortColumn };
 }
-
-export type TableSort = ReturnType<typeof createTableSort>;

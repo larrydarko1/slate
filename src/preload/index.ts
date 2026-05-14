@@ -1,6 +1,8 @@
-// Preload script — Bridge between renderer (Vue) and main process (Node.js).
-// Owns: contextBridge API surface exposed to the renderer.
-// Does NOT own: business logic (src/main), UI (src/renderer).
+/**
+ * Preload script — Bridge between renderer (Vue) and main process (Node.js).
+ * Owns: contextBridge API surface exposed to the renderer.
+ * Does NOT own: business logic (src/main), UI (src/renderer).
+ */
 
 import { contextBridge, ipcRenderer } from 'electron';
 

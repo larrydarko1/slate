@@ -1,6 +1,8 @@
-// useTableStructure — table drag-to-move, column resize, and add row/col drag.
-// Owns: title-bar drag, column width resize, drag-to-add rows and columns.
-// Does NOT own: cell selection, reorder, fill handle, context menus.
+/**
+ * useTableStructure — table drag-to-move, column resize, and add row/col drag.
+ * Owns: title-bar drag, column width resize, drag-to-add rows and columns.
+ * Does NOT own: cell selection, reorder, fill handle, context menus.
+ */
 
 import type { Ref } from 'vue';
 import type { SpreadsheetTable } from '../../types/spreadsheet';

@@ -1,6 +1,8 @@
-// parser — recursive-descent parser for the Slate formula language.
-// Owns: ASTNode, parseCellRef, Parser class.
-// Does NOT own: tokenization (tokenizer.ts), evaluation (evaluator.ts).
+/**
+ * parser — recursive-descent parser for the Slate formula language.
+ * Owns: ASTNode, parseCellRef, Parser class.
+ * Does NOT own: tokenization (tokenizer.ts), evaluation (evaluator.ts).
+ */
 
 import type { Token, TokenType } from './tokenizer';
 import { columnLetterToIndex } from '../../../types/spreadsheet';
@@ -26,14 +28,6 @@ export type ASTNode =
     | { type: 'binary'; op: string; left: ASTNode; right: ASTNode }
     | { type: 'unary'; op: string; operand: ASTNode }
     | { type: 'function'; name: string; args: ASTNode[] };
-
-// ── Helpers ──────────────────────────────────────────────────────────────────
-
-export function parseCellRef(ref: string): { col: number; row: number } {
-    const m = ref.match(/^([A-Z]+)(\d+)$/);
-    if (!m) throw new Error(`Invalid cell reference: ${ref}`);
-    return { col: columnLetterToIndex(m[1]), row: parseInt(m[2]) - 1 };
-}
 
 // ── Parser (recursive-descent) ───────────────────────────────────────────────
 
@@ -262,4 +256,12 @@ export class Parser {
                 throw new Error(`Unexpected token: ${tok.type} "${tok.value}"`);
         }
     }
+}
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+
+export function parseCellRef(ref: string): { col: number; row: number } {
+    const m = ref.match(/^([A-Z]+)(\d+)$/);
+    if (!m) throw new Error(`Invalid cell reference: ${ref}`);
+    return { col: columnLetterToIndex(m[1]), row: parseInt(m[2]) - 1 };
 }

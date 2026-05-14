@@ -1,6 +1,8 @@
-// useTableContextMenus — context menu builders for column, row, and cell right-click.
-// Owns: menu item assembly, merge/unmerge options, note integration.
-// Does NOT own: context menu rendering (ContextMenu.vue), note UI (useTableNotes).
+/**
+ * useTableContextMenus — context menu builders for column, row, and cell right-click.
+ * Owns: menu item assembly, merge/unmerge options, note integration.
+ * Does NOT own: context menu rendering (ContextMenu.vue), note UI (useTableNotes).
+ */
 
 import type { Ref } from 'vue';
 import type { SpreadsheetTable } from '../../types/spreadsheet';

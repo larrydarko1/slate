@@ -1,6 +1,8 @@
-// useDragResize — shared drag-to-move and resize logic for canvas objects.
-// Owns: mouse event tracking, zoom-aware position/size calculation.
-// Does NOT own: persisting changes (caller provides move/resize callbacks).
+/**
+ * useDragResize — shared drag-to-move and resize logic for canvas objects.
+ * Owns: mouse event tracking, zoom-aware position/size calculation.
+ * Does NOT own: persisting changes (caller provides move/resize callbacks).
+ */
 
 import type { Ref } from 'vue';
 

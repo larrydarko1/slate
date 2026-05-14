@@ -1,11 +1,15 @@
-// useTextBoxes — textbox CRUD (add, remove, move, resize, update, select).
-// Owns: addTextBox, removeTextBox, moveTextBox, resizeTextBox, updateTextBox, selectTextBox.
-// Does NOT own: editing (useEditing.ts), charts (useCharts.ts).
+/**
+ * useTextBoxes — textbox CRUD (add, remove, move, resize, update, select).
+ * Owns: addTextBox, removeTextBox, moveTextBox, resizeTextBox, updateTextBox, selectTextBox.
+ * Does NOT own: editing (useEditing.ts), charts (useCharts.ts).
+ */
 
 import type { SpreadsheetCoreState } from './state';
 import type { SpreadsheetHelpers } from './helpers';
 import type { TextBox } from '../../types/spreadsheet';
 import { createDefaultTextBox } from '../../types/spreadsheet';
+
+export type SpreadsheetTextBoxes = ReturnType<typeof createTextBoxes>;
 
 interface TextBoxesDeps {
     findTextBox: SpreadsheetHelpers['findTextBox'];
@@ -74,5 +78,3 @@ export function createTextBoxes(state: SpreadsheetCoreState, deps: TextBoxesDeps
 
     return { addTextBox, removeTextBox, moveTextBox, resizeTextBox, updateTextBox, selectTextBox };
 }
-
-export type SpreadsheetTextBoxes = ReturnType<typeof createTextBoxes>;

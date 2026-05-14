@@ -1,6 +1,8 @@
-// evaluator — type-aware AST evaluator for the Slate formula engine.
-// Owns: evaluate, evaluateVal, evalFunction, type coercion helpers.
-// Does NOT own: tokenization (tokenizer.ts), parsing (parser.ts), public API (formula.ts).
+/**
+ * evaluator — type-aware AST evaluator for the Slate formula engine.
+ * Owns: evaluate, evaluateVal, evalFunction, type coercion helpers.
+ *  Does NOT own: tokenization (tokenizer.ts), parsing (parser.ts), public API (formula.ts).
+ */
 
 import type { CellValue } from '../../../types/spreadsheet';
 import type { CellDataType } from './cellTypes';
@@ -10,6 +12,11 @@ import type { ASTNode } from './parser';
 
 // ── Type helpers ─────────────────────────────────────────────────────────────
 
+export interface TypedCellValue {
+    value: CellValue;
+    type: CellDataType;
+}
+
 export function toNumber(v: CellValue): number {
     if (v === null || v === '') return 0;
     if (typeof v === 'boolean') return v ? 1 : 0;
@@ -18,9 +25,138 @@ export function toNumber(v: CellValue): number {
     return isNaN(n) ? 0 : n;
 }
 
-export interface TypedCellValue {
-    value: CellValue;
-    type: CellDataType;
+// ── Main evaluator (type-aware) ──────────────────────────────────────────────
+
+export function evaluate(node: ASTNode, ctx: FormulaContext): TypedCellValue {
+    switch (node.type) {
+        case 'number':
+            return { value: node.value, type: Number.isInteger(node.value) ? 'integer' : 'float' };
+        case 'string':
+            return { value: node.value, type: 'text' };
+        case 'boolean':
+            return { value: node.value, type: 'boolean' };
+        case 'cell_ref':
+            return { value: ctx.getCellValue(node.col, node.row), type: ctx.getCellType(node.col, node.row) };
+        case 'external_cell_ref': {
+            if (!ctx.resolveExternalCellValue || !ctx.resolveExternalCellType)
+                throw new Error('Cross-table references not supported in this context');
+            return {
+                value: ctx.resolveExternalCellValue(node.canvasName, node.tableName, node.col, node.row),
+                type: ctx.resolveExternalCellType(node.canvasName, node.tableName, node.col, node.row),
+            };
+        }
+        case 'range':
+            throw new Error('Range can only be used as a function argument');
+        case 'external_range':
+            throw new Error('External range can only be used as a function argument');
+
+        case 'unary': {
+            const operand = evaluate(node.operand, ctx);
+            // Propagate error values
+            if (typeof operand.value === 'string' && operand.value.startsWith('#')) return operand;
+            if (node.op === '-') {
+                return { value: -toNumber(operand.value), type: operand.type };
+            }
+            return operand;
+        }
+
+        case 'binary': {
+            if (node.op === '&') {
+                const lConcat = evaluateVal(node.left, ctx);
+                const rConcat = evaluateVal(node.right, ctx);
+                // Propagate errors through concatenation
+                if (typeof lConcat === 'string' && lConcat.startsWith('#')) return { value: lConcat, type: 'text' };
+                if (typeof rConcat === 'string' && rConcat.startsWith('#')) return { value: rConcat, type: 'text' };
+                return {
+                    value: String(lConcat ?? '') + String(rConcat ?? ''),
+                    type: 'text',
+                };
+            }
+            const l = evaluate(node.left, ctx);
+            const r = evaluate(node.right, ctx);
+
+            // Propagate error values (e.g. #REF!, #CIRCULAR!, #ERROR!)
+            if (typeof l.value === 'string' && l.value.startsWith('#')) return l;
+            if (typeof r.value === 'string' && r.value.startsWith('#')) return r;
+
+            // Comparison operators
+            if (['=', '<>', '<', '>', '<=', '>='].includes(node.op)) {
+                switch (node.op) {
+                    case '=':
+                        return { value: l.value === r.value, type: 'boolean' };
+                    case '<>':
+                        return { value: l.value !== r.value, type: 'boolean' };
+                    case '<':
+                        return { value: toNumber(l.value) < toNumber(r.value), type: 'boolean' };
+                    case '>':
+                        return { value: toNumber(l.value) > toNumber(r.value), type: 'boolean' };
+                    case '<=':
+                        return { value: toNumber(l.value) <= toNumber(r.value), type: 'boolean' };
+                    case '>=':
+                        return { value: toNumber(l.value) >= toNumber(r.value), type: 'boolean' };
+                }
+            }
+
+            // Arithmetic: check type compatibility
+            const resolvedType = resolveType(l.type, r.type);
+
+            // Text in arithmetic → #N/A
+            if (resolvedType === null) {
+                // One is text and the other is numeric
+                if (
+                    (l.type === 'text' && l.value !== null && l.value !== '') ||
+                    (r.type === 'text' && r.value !== null && r.value !== '')
+                ) {
+                    return { value: '#N/A', type: 'text' };
+                }
+                // Both empty or compatible, fall through
+            }
+
+            const lNum = toNumber(l.value);
+            const rNum = toNumber(r.value);
+
+            switch (node.op) {
+                case '+':
+                    return { value: lNum + rNum, type: resolvedType ?? 'float' };
+                case '-':
+                    return { value: lNum - rNum, type: resolvedType ?? 'float' };
+                case '*': {
+                    // Multiplying currency by integer/float keeps currency
+                    const multType =
+                        isNumericType(l.type) && (r.type === 'integer' || r.type === 'float')
+                            ? l.type
+                            : isNumericType(r.type) && (l.type === 'integer' || l.type === 'float')
+                              ? r.type
+                              : (resolvedType ?? 'float');
+                    return { value: lNum * rNum, type: multType };
+                }
+                case '/': {
+                    if (rNum === 0) return { value: '#DIV/0!', type: 'text' };
+                    // Dividing currency by number keeps currency; currency / currency → float
+                    let divType = resolvedType ?? 'float';
+                    if (
+                        (l.type === 'currency_eur' || l.type === 'currency_usd') &&
+                        (r.type === 'currency_eur' || r.type === 'currency_usd')
+                    ) {
+                        divType = 'float'; // currency / currency = ratio
+                    }
+                    return { value: lNum / rNum, type: divType };
+                }
+                case '^':
+                    return { value: Math.pow(lNum, rNum), type: 'float' };
+                default:
+                    return { value: '#OP!', type: 'text' };
+            }
+        }
+
+        case 'function':
+            return evalFunction(node.name, node.args, ctx);
+    }
+}
+
+/** Convenience: evaluate and return just the value (for backward compat) */
+export function evaluateVal(node: ASTNode, ctx: FormulaContext): CellValue {
+    return evaluate(node, ctx).value;
 }
 
 // ── Argument flattening ──────────────────────────────────────────────────────
@@ -241,138 +377,4 @@ function evalFunction(name: string, args: ASTNode[], ctx: FormulaContext): Typed
         default:
             return { value: `#NAME? (${name})`, type: 'text' };
     }
-}
-
-// ── Main evaluator (type-aware) ──────────────────────────────────────────────
-
-export function evaluate(node: ASTNode, ctx: FormulaContext): TypedCellValue {
-    switch (node.type) {
-        case 'number':
-            return { value: node.value, type: Number.isInteger(node.value) ? 'integer' : 'float' };
-        case 'string':
-            return { value: node.value, type: 'text' };
-        case 'boolean':
-            return { value: node.value, type: 'boolean' };
-        case 'cell_ref':
-            return { value: ctx.getCellValue(node.col, node.row), type: ctx.getCellType(node.col, node.row) };
-        case 'external_cell_ref': {
-            if (!ctx.resolveExternalCellValue || !ctx.resolveExternalCellType)
-                throw new Error('Cross-table references not supported in this context');
-            return {
-                value: ctx.resolveExternalCellValue(node.canvasName, node.tableName, node.col, node.row),
-                type: ctx.resolveExternalCellType(node.canvasName, node.tableName, node.col, node.row),
-            };
-        }
-        case 'range':
-            throw new Error('Range can only be used as a function argument');
-        case 'external_range':
-            throw new Error('External range can only be used as a function argument');
-
-        case 'unary': {
-            const operand = evaluate(node.operand, ctx);
-            // Propagate error values
-            if (typeof operand.value === 'string' && operand.value.startsWith('#')) return operand;
-            if (node.op === '-') {
-                return { value: -toNumber(operand.value), type: operand.type };
-            }
-            return operand;
-        }
-
-        case 'binary': {
-            if (node.op === '&') {
-                const lConcat = evaluateVal(node.left, ctx);
-                const rConcat = evaluateVal(node.right, ctx);
-                // Propagate errors through concatenation
-                if (typeof lConcat === 'string' && lConcat.startsWith('#')) return { value: lConcat, type: 'text' };
-                if (typeof rConcat === 'string' && rConcat.startsWith('#')) return { value: rConcat, type: 'text' };
-                return {
-                    value: String(lConcat ?? '') + String(rConcat ?? ''),
-                    type: 'text',
-                };
-            }
-            const l = evaluate(node.left, ctx);
-            const r = evaluate(node.right, ctx);
-
-            // Propagate error values (e.g. #REF!, #CIRCULAR!, #ERROR!)
-            if (typeof l.value === 'string' && l.value.startsWith('#')) return l;
-            if (typeof r.value === 'string' && r.value.startsWith('#')) return r;
-
-            // Comparison operators
-            if (['=', '<>', '<', '>', '<=', '>='].includes(node.op)) {
-                switch (node.op) {
-                    case '=':
-                        return { value: l.value === r.value, type: 'boolean' };
-                    case '<>':
-                        return { value: l.value !== r.value, type: 'boolean' };
-                    case '<':
-                        return { value: toNumber(l.value) < toNumber(r.value), type: 'boolean' };
-                    case '>':
-                        return { value: toNumber(l.value) > toNumber(r.value), type: 'boolean' };
-                    case '<=':
-                        return { value: toNumber(l.value) <= toNumber(r.value), type: 'boolean' };
-                    case '>=':
-                        return { value: toNumber(l.value) >= toNumber(r.value), type: 'boolean' };
-                }
-            }
-
-            // Arithmetic: check type compatibility
-            const resolvedType = resolveType(l.type, r.type);
-
-            // Text in arithmetic → #N/A
-            if (resolvedType === null) {
-                // One is text and the other is numeric
-                if (
-                    (l.type === 'text' && l.value !== null && l.value !== '') ||
-                    (r.type === 'text' && r.value !== null && r.value !== '')
-                ) {
-                    return { value: '#N/A', type: 'text' };
-                }
-                // Both empty or compatible, fall through
-            }
-
-            const lNum = toNumber(l.value);
-            const rNum = toNumber(r.value);
-
-            switch (node.op) {
-                case '+':
-                    return { value: lNum + rNum, type: resolvedType ?? 'float' };
-                case '-':
-                    return { value: lNum - rNum, type: resolvedType ?? 'float' };
-                case '*': {
-                    // Multiplying currency by integer/float keeps currency
-                    const multType =
-                        isNumericType(l.type) && (r.type === 'integer' || r.type === 'float')
-                            ? l.type
-                            : isNumericType(r.type) && (l.type === 'integer' || l.type === 'float')
-                              ? r.type
-                              : (resolvedType ?? 'float');
-                    return { value: lNum * rNum, type: multType };
-                }
-                case '/': {
-                    if (rNum === 0) return { value: '#DIV/0!', type: 'text' };
-                    // Dividing currency by number keeps currency; currency / currency → float
-                    let divType = resolvedType ?? 'float';
-                    if (
-                        (l.type === 'currency_eur' || l.type === 'currency_usd') &&
-                        (r.type === 'currency_eur' || r.type === 'currency_usd')
-                    ) {
-                        divType = 'float'; // currency / currency = ratio
-                    }
-                    return { value: lNum / rNum, type: divType };
-                }
-                case '^':
-                    return { value: Math.pow(lNum, rNum), type: 'float' };
-                default:
-                    return { value: '#OP!', type: 'text' };
-            }
-        }
-
-        case 'function':
-            return evalFunction(node.name, node.args, ctx);
-    }
-}
-
-/** Convenience: evaluate and return just the value (for backward compat) */
-export function evaluateVal(node: ASTNode, ctx: FormulaContext): CellValue {
-    return evaluate(node, ctx).value;
 }

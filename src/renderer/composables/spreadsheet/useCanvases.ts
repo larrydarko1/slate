@@ -1,10 +1,14 @@
-// useCanvases — canvas CRUD, zoom controls, and tab reordering.
-// Owns: addCanvas, removeCanvas, renameCanvas, switchCanvas, zoom, reorder.
-// Does NOT own: reactive state (state.ts), recalculation (useFormulaEngine.ts).
+/**
+ * useCanvases — canvas CRUD, zoom controls, and tab reordering.
+ * Owns: addCanvas, removeCanvas, renameCanvas, switchCanvas, zoom, reorder.
+ * Does NOT own: reactive state (state.ts), recalculation (useFormulaEngine.ts).
+ */
 
 import type { SpreadsheetCoreState } from './state';
 import type { SpreadsheetHelpers } from './helpers';
 import { createDefaultCanvas, MAX_CANVASES, MIN_ZOOM, MAX_ZOOM, ZOOM_STEP } from '../../types/spreadsheet';
+
+export type SpreadsheetCanvases = ReturnType<typeof createCanvases>;
 
 interface CanvasesDeps {
     pushUndo: () => void;
@@ -123,5 +127,3 @@ export function createCanvases(state: SpreadsheetCoreState, deps: CanvasesDeps) 
         resetZoom,
     };
 }
-
-export type SpreadsheetCanvases = ReturnType<typeof createCanvases>;

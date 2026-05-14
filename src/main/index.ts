@@ -1,6 +1,8 @@
-// Electron Main Process — Slate spreadsheet app.
-// Owns: BrowserWindow lifecycle, IPC handlers, file I/O, menu, single-instance lock.
-// Does NOT own: spreadsheet logic (src/renderer), formula engine (src/renderer/engine).
+/**
+ *  Electron Main Process — Slate spreadsheet app.
+ * Owns: BrowserWindow lifecycle, IPC handlers, file I/O, menu, single-instance lock.
+ * Does NOT own: spreadsheet logic (src/renderer), formula engine (src/renderer/engine).
+ */
 
 import { app, BrowserWindow, ipcMain, dialog, shell, Menu, screen } from 'electron';
 import path from 'path';

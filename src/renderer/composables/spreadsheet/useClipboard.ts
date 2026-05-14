@@ -1,11 +1,15 @@
-// useClipboard — copy, cut, paste, and fill operations.
-// Owns: internal clipboard buffer, copyCells, cutCells, pasteCells, fillCells.
-// Does NOT own: cell access (useCells.ts), formula shifting (useFormulaEngine.ts).
+/**
+ * useClipboard — copy, cut, paste, and fill operations.
+ * Owns: internal clipboard buffer, copyCells, cutCells, pasteCells, fillCells.
+ * Does NOT own: cell access (useCells.ts), formula shifting (useFormulaEngine.ts).
+ */
 
 import type { SpreadsheetCoreState } from './state';
 import type { SpreadsheetHelpers } from './helpers';
 import type { Cell, CellFormat, SelectionRange } from '../../types/spreadsheet';
 import { generateId, createEmptyCell } from '../../types/spreadsheet';
+
+export type SpreadsheetClipboard = ReturnType<typeof createClipboard>;
 
 interface ClipboardDeps {
     findTable: SpreadsheetHelpers['findTable'];
@@ -192,5 +196,3 @@ export function createClipboard(state: SpreadsheetCoreState, deps: ClipboardDeps
 
     return { copyCells, cutCells, pasteCells, fillCells };
 }
-
-export type SpreadsheetClipboard = ReturnType<typeof createClipboard>;

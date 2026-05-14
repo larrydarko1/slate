@@ -1,15 +1,19 @@
-// useUndoRedo — undo/redo stack management with auto-nesting and batch support.
-// Owns: undo/redo stacks, snapshot/restore, canUndo/canRedo updates.
-// Does NOT own: reactive state (state.ts), recalculation (useFormulaEngine.ts).
+/**
+ * useUndoRedo — undo/redo stack management with auto-nesting and batch support.
+ * Owns: undo/redo stacks, snapshot/restore, canUndo/canRedo updates.
+ * Does NOT own: reactive state (state.ts), recalculation (useFormulaEngine.ts).
+ */
 
 import type { SpreadsheetCoreState } from './state';
 import type { Canvas } from '../../types/spreadsheet';
 
-const MAX_UNDO = 100;
+export type SpreadsheetUndoRedo = ReturnType<typeof createUndoRedo>;
 
 interface UndoRedoDeps {
     recalculate: () => void;
 }
+
+const MAX_UNDO = 100;
 
 export function createUndoRedo(state: SpreadsheetCoreState, deps: UndoRedoDeps) {
     const undoStack: string[] = [];
@@ -74,5 +78,3 @@ export function createUndoRedo(state: SpreadsheetCoreState, deps: UndoRedoDeps) 
 
     return { pushUndo, startUndoBatch, endUndoBatch, undo, redo };
 }
-
-export type SpreadsheetUndoRedo = ReturnType<typeof createUndoRedo>;

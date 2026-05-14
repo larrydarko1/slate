@@ -1,6 +1,8 @@
-// useTableNotes — cell note popup (hover) and note editor dialog.
-// Owns: popup visibility/position, editor form state, save/delete/cancel actions.
-// Does NOT own: note storage (useSpreadsheet), context menu integration.
+/**
+ * useTableNotes — cell note popup (hover) and note editor dialog.
+ * Owns: popup visibility/position, editor form state, save/delete/cancel actions.
+ * Does NOT own: note storage (useSpreadsheet), context menu integration.
+ */
 
 import { nextTick, ref, type Ref } from 'vue';
 import type { SpreadsheetTable } from '../../types/spreadsheet';

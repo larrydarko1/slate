@@ -1,12 +1,16 @@
-// useFormulas — formula editing mode, token parsing, highlights, and cell reference insertion.
-// Owns: toggleFormulaMode, insertCellReference, getFormulaTokens, getFormulaHighlights.
-// Does NOT own: recalculation (useFormulaEngine.ts), cell access (useCells.ts).
+/**
+ * useFormulas — formula editing mode, token parsing, highlights, and cell reference insertion.
+ * Owns: toggleFormulaMode, insertCellReference, getFormulaTokens, getFormulaHighlights.
+ * Does NOT own: recalculation (useFormulaEngine.ts), cell access (useCells.ts).
+ */
 
 import type { SpreadsheetCoreState } from './state';
 import type { SpreadsheetHelpers } from './helpers';
 import { REF_COLORS } from './state';
 import type { Cell } from '../../types/spreadsheet';
 import { indexToColumnLetter, columnLetterToIndex } from '../../types/spreadsheet';
+
+export type SpreadsheetFormulas = ReturnType<typeof createFormulas>;
 
 interface FormulaToken {
     text: string;
@@ -220,5 +224,3 @@ export function createFormulas(state: SpreadsheetCoreState, deps: FormulasDeps) 
         getFormulaHighlights,
     };
 }
-
-export type SpreadsheetFormulas = ReturnType<typeof createFormulas>;

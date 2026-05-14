@@ -1,10 +1,14 @@
-// useTableReorder — row and column reorder operations.
-// Owns: reorderRow, reorderRows, reorderColumn, reorderColumns.
-// Does NOT own: CRUD (useTables.ts), sorting (useTableSort.ts).
+/**
+ * useTableReorder — row and column reorder operations.
+ * Owns: reorderRow, reorderRows, reorderColumn, reorderColumns.
+ * Does NOT own: CRUD (useTables.ts), sorting (useTableSort.ts).
+ */
 
 import type { SpreadsheetCoreState } from './state';
 import type { SpreadsheetHelpers } from './helpers';
 import type { SpreadsheetTable } from '../../types/spreadsheet';
+
+export type TableReorder = ReturnType<typeof createTableReorder>;
 
 interface ReorderDeps {
     findTable: SpreadsheetHelpers['findTable'];
@@ -111,5 +115,3 @@ export function createTableReorder(state: SpreadsheetCoreState, deps: ReorderDep
 
     return { reorderRow, reorderRows, reorderColumn, reorderColumns };
 }
-
-export type TableReorder = ReturnType<typeof createTableReorder>;

@@ -1,6 +1,8 @@
-// useSpreadsheet — orchestrator composable that wires all sub-composables together.
-// Owns: composable instantiation order, dependency wiring, unified public API.
-// Does NOT own: any business logic (delegated to sub-composables in ./spreadsheet/).
+/**
+ * useSpreadsheet — orchestrator composable that wires all sub-composables together.
+ * Owns: composable instantiation order, dependency wiring, unified public API.
+ * Does NOT own: any business logic (delegated to sub-composables in ./spreadsheet/).
+ */
 
 import { type InjectionKey } from 'vue';
 import { createState } from './spreadsheet/state';

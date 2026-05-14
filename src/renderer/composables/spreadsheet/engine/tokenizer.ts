@@ -1,6 +1,8 @@
-// tokenizer — lexer for the Slate formula language.
-// Owns: TokenType, Token, tokenize().
-// Does NOT own: parsing (parser.ts), evaluation (evaluator.ts).
+/**
+ * tokenizer — lexer for the Slate formula language.
+ * Owns: TokenType, Token, tokenize().
+ * Does NOT own: parsing (parser.ts), evaluation (evaluator.ts).
+ */
 
 // ── Token types ──────────────────────────────────────────────────────────────
 

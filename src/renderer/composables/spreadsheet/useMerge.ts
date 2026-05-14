@@ -1,11 +1,15 @@
-// useMerge — cell merge and unmerge operations.
-// Owns: getMergedRegionAt, isMergedOrigin, isCellHiddenByMerge, merge/unmerge.
-// Does NOT own: cell access (useCells.ts), selection (helpers.ts).
+/**
+ * useMerge — cell merge and unmerge operations.
+ * Owns: getMergedRegionAt, isMergedOrigin, isCellHiddenByMerge, merge/unmerge.
+ * Does NOT own: cell access (useCells.ts), selection (helpers.ts).
+ */
 
 import type { SpreadsheetCoreState } from './state';
 import type { SpreadsheetHelpers } from './helpers';
 import type { MergedRegion } from '../../types/spreadsheet';
 import { createEmptyCell } from '../../types/spreadsheet';
+
+export type SpreadsheetMerge = ReturnType<typeof createMerge>;
 
 interface MergeDeps {
     findTable: SpreadsheetHelpers['findTable'];
@@ -112,5 +116,3 @@ export function createMerge(_state: SpreadsheetCoreState, deps: MergeDeps) {
         selectionHasMerge,
     };
 }
-
-export type SpreadsheetMerge = ReturnType<typeof createMerge>;

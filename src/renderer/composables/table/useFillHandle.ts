@@ -1,6 +1,8 @@
-// useFillHandle — drag-to-fill (autofill) logic for SpreadsheetTable.
-// Owns: fill drag state, fill range computation, fill preview highlighting.
-// Does NOT own: cell value writes (delegated to ss.fillCells).
+/**
+ * useFillHandle — drag-to-fill (autofill) logic for SpreadsheetTable.
+ * Owns: fill drag state, fill range computation, fill preview highlighting.
+ * Does NOT own: cell value writes (delegated to ss.fillCells).
+ */
 
 import { ref, type Ref } from 'vue';
 import type { SpreadsheetTable } from '../../types/spreadsheet';

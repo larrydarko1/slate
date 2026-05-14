@@ -1,9 +1,13 @@
-// helpers — finder functions, z-index management, selection queries, name-pattern utilities.
-// Owns: table/textbox/chart lookups, bringToFront, selection normalization, ref name quoting.
-// Does NOT own: reactive state (state.ts), business logic (sub-composables).
+/**
+ * helpers — finder functions, z-index management, selection queries, name-pattern utilities.
+ * Owns: table/textbox/chart lookups, bringToFront, selection normalization, ref name quoting.
+ * Does NOT own: reactive state (state.ts), business logic (sub-composables).
+ */
 
 import type { SpreadsheetCoreState } from './state';
 import type { SpreadsheetTable, Canvas, TextBox, ChartObject, SelectionRange } from '../../types/spreadsheet';
+
+export type SpreadsheetHelpers = ReturnType<typeof createHelpers>;
 
 export function createHelpers(state: SpreadsheetCoreState) {
     // ─── Finder functions ────────────────────────────────────────────────────
@@ -180,5 +184,3 @@ export function createHelpers(state: SpreadsheetCoreState) {
         replaceNameInRef,
     };
 }
-
-export type SpreadsheetHelpers = ReturnType<typeof createHelpers>;

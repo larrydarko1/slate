@@ -1,12 +1,16 @@
-// useFileOps — file operations, serialization, deserialization, and migration.
-// Owns: save, saveAs, open, loadFileFromPath, newFile, serialize/deserialize.
-// Does NOT own: reactive state (state.ts), recalculation (useFormulaEngine.ts).
+/**
+ * useFileOps — file operations, serialization, deserialization, and migration.
+ * Owns: save, saveAs, open, loadFileFromPath, newFile, serialize/deserialize.
+ * Does NOT own: reactive state (state.ts), recalculation (useFormulaEngine.ts).
+ */
 
 import type { SpreadsheetCoreState } from './state';
 import type { SpreadsheetHelpers } from './helpers';
 import type { SpreadsheetTable, Cell } from '../../types/spreadsheet';
 import { createDefaultCanvas, indexToColumnLetter } from '../../types/spreadsheet';
 import { detectType } from './engine/cellTypes';
+
+export type SpreadsheetFileOps = ReturnType<typeof createFileOps>;
 
 interface FileOpsDeps {
     recalculate: () => void;
@@ -237,5 +241,3 @@ export function createFileOps(state: SpreadsheetCoreState, deps: FileOpsDeps) {
 
     return { saveFile, saveAsFile, openFile, loadFileFromPath, newFile };
 }
-
-export type SpreadsheetFileOps = ReturnType<typeof createFileOps>;

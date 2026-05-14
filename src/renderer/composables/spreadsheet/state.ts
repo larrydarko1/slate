@@ -1,12 +1,16 @@
-// state — shared reactive state for the spreadsheet composable.
-// Owns: all reactive refs, computed props, color palettes, mutable counters.
-// Does NOT own: business logic (sub-composables), formula engine (useFormulaEngine).
+/**
+ * state — shared reactive state for the spreadsheet composable.
+ * Owns: all reactive refs, computed props, color palettes, mutable counters.
+ * Does NOT own: business logic (sub-composables), formula engine (useFormulaEngine).
+ */
 
 import { ref, computed } from 'vue';
 import type { CellReference, SelectionRange, Canvas } from '../../types/spreadsheet';
 import { createDefaultCanvas } from '../../types/spreadsheet';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
+
+export type SpreadsheetCoreState = ReturnType<typeof createState>;
 
 export interface FormulaRef {
     tableId: string;
@@ -102,5 +106,3 @@ export function createState() {
         counters,
     };
 }
-
-export type SpreadsheetCoreState = ReturnType<typeof createState>;

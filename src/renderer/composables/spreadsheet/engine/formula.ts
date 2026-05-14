@@ -1,7 +1,3 @@
-// formula — public API for the Slate formula engine.
-// Owns: FormulaContext, TypedResult, evaluateFormula, evaluateFormulaTyped.
-// Does NOT own: tokenization (tokenizer.ts), parsing (parser.ts), evaluation (evaluator.ts).
-
 /**
  * Supports:
  *  - Arithmetic: +  -  *  /  ^

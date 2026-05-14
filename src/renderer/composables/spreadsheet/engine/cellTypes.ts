@@ -1,8 +1,10 @@
-// cellTypes — type detection, formatting, coercion, and hierarchy for cell values.
-// Owns: CellDataType, detectCellType, formatCellValue, coerceToCellType, getTypeLabel.
-// Does NOT own: formula parsing (parser.ts), evaluation (evaluator.ts).
+/**
+ * cellTypes — type detection, formatting, coercion, and hierarchy for cell values.
+ * Owns: CellDataType, detectCellType, formatCellValue, coerceToCellType, getTypeLabel.
+ * Does NOT own: formula parsing (parser.ts), evaluation (evaluator.ts).
+ */
 
-// ── Types ──
+// ── Types ─────────────────────────────────────────────────────────────────────
 
 export type CellDataType =
     | 'integer'
@@ -21,9 +23,30 @@ export interface TypedValue {
     rawInput: string; // what the user originally typed
 }
 
-// ── Detection / Parsing ──
+// ── Constants ───────────────────────────────────────────────────────────────────
 
-/** Currency regex patterns */
+/**
+ * Priority for type coercion (higher = more specific).
+ * When two numeric types meet, we promote to the higher-priority one.
+ *
+ * percent > currency > float > integer
+ *
+ * The "first cell" rule: the first operand's type is preferred.
+ * If both are currency but different, the first one wins.
+ */
+export const TYPE_PRIORITY: Record<CellDataType, number> = {
+    empty: 0,
+    boolean: 1,
+    integer: 2,
+    float: 3,
+    currency_eur: 4,
+    currency_usd: 4,
+    percent: 5,
+    text: 6,
+    url: 6,
+};
+
+// Currency regex patterns
 const CURRENCY_USD_PATTERNS = [
     // $1,234.56  or  $1234.56  or  $1234  or  -$12.50
     /^-?\$[\d,]+(?:\.\d+)?$/,
@@ -31,7 +54,7 @@ const CURRENCY_USD_PATTERNS = [
     /^-?[\d,]+(?:\.\d+)?\$$/,
 ];
 
-/** Matches strings that start with http:// or https:// */
+// Matches strings that start with http:// or https://
 const URL_PATTERN = /^https?:\/\/.+/i;
 
 const CURRENCY_EUR_PATTERNS = [
@@ -42,35 +65,9 @@ const CURRENCY_EUR_PATTERNS = [
     /^-?[\d.,]+€$/,
 ];
 
-/**
- * Parse a currency string and extract the numeric value.
- */
-function parseCurrencyUSD(raw: string): number | null {
-    const cleaned = raw.replace(/[$,]/g, '');
-    const n = parseFloat(cleaned);
-    return isNaN(n) ? null : n;
-}
+// ── Detection ───────────────────────────────────────────────────────────────────
 
-function parseCurrencyEUR(raw: string): number | null {
-    // Remove € symbol, then handle European number format
-    let cleaned = raw.replace(/€/g, '').trim();
-
-    // Detect European format: dots as thousands, comma as decimal
-    // e.g. "1.234,56" → "1234.56"
-    if (/^\d{1,3}(\.\d{3})*(,\d+)?$/.test(cleaned) || /^-?\d{1,3}(\.\d{3})*(,\d+)?$/.test(cleaned)) {
-        cleaned = cleaned.replace(/\./g, '').replace(',', '.');
-    } else if (cleaned.includes(',')) {
-        // Simple comma-as-decimal: "12,50" → "12.50"
-        cleaned = cleaned.replace(',', '.');
-    }
-
-    const n = parseFloat(cleaned);
-    return isNaN(n) ? null : n;
-}
-
-/**
- * Detect the type of a raw input string and extract its components.
- */
+// Detect the type of a raw input string and extract its components.
 export function detectType(raw: string): TypedValue {
     if (raw === '' || raw === null || raw === undefined) {
         return { type: 'empty', numericValue: null, rawInput: '' };
@@ -139,7 +136,7 @@ export function detectType(raw: string): TypedValue {
     return { type: 'text', numericValue: null, rawInput: trimmed };
 }
 
-// ── Type Hierarchy & Conversion ──
+// ── Type Hierarchy & Conversion ────────────────────────────────────────────────
 
 /**
  * Returns true if the type is numeric (can participate in arithmetic).
@@ -154,27 +151,6 @@ export function isNumericType(t: CellDataType): boolean {
 export function isCurrencyType(t: CellDataType): boolean {
     return t === 'currency_eur' || t === 'currency_usd';
 }
-
-/**
- * Priority for type coercion (higher = more specific).
- * When two numeric types meet, we promote to the higher-priority one.
- *
- * percent > currency > float > integer
- *
- * The "first cell" rule: the first operand's type is preferred.
- * If both are currency but different, the first one wins.
- */
-export const TYPE_PRIORITY: Record<CellDataType, number> = {
-    empty: 0,
-    boolean: 1,
-    integer: 2,
-    float: 3,
-    currency_eur: 4,
-    currency_usd: 4,
-    percent: 5,
-    text: 6,
-    url: 6,
-};
 
 /**
  * Resolve the result type when two typed values interact in a formula.
@@ -235,7 +211,7 @@ export function resolveTypeList(types: CellDataType[]): CellDataType | null {
     return result;
 }
 
-// ── Formatting ──
+// ── Formatting ─────────────────────────────────────────────────────────────────
 
 /**
  * Format a numeric value according to the given cell type.
@@ -403,4 +379,29 @@ export function coerceToType(
     }
 
     return null;
+}
+
+// ── Currency parsers ───────────────────────────────────────────────────────────
+
+function parseCurrencyUSD(raw: string): number | null {
+    const cleaned = raw.replace(/[$,]/g, '');
+    const n = parseFloat(cleaned);
+    return isNaN(n) ? null : n;
+}
+
+function parseCurrencyEUR(raw: string): number | null {
+    // Remove € symbol, then handle European number format
+    let cleaned = raw.replace(/€/g, '').trim();
+
+    // Detect European format: dots as thousands, comma as decimal
+    // e.g. "1.234,56" → "1234.56"
+    if (/^\d{1,3}(\.\d{3})*(,\d+)?$/.test(cleaned) || /^-?\d{1,3}(\.\d{3})*(,\d+)?$/.test(cleaned)) {
+        cleaned = cleaned.replace(/\./g, '').replace(',', '.');
+    } else if (cleaned.includes(',')) {
+        // Simple comma-as-decimal: "12,50" → "12.50"
+        cleaned = cleaned.replace(',', '.');
+    }
+
+    const n = parseFloat(cleaned);
+    return isNaN(n) ? null : n;
 }

@@ -1,6 +1,8 @@
-// useChartData — reactive Chart.js data and options for a single chart.
-// Owns: chartData computed, chartOptions computed, theme tracking, toChartNumber.
-// Does NOT own: chart CRUD (useCharts.ts), drag/resize (useDragResize.ts).
+/**
+ * useChartData — reactive Chart.js data and options for a single chart.
+ * Owns: chartData computed, chartOptions computed, theme tracking, toChartNumber.
+ * Does NOT own: chart CRUD (useCharts.ts), drag/resize (useDragResize.ts).
+ */
 
 import { computed, ref, onMounted, onBeforeUnmount, type Ref } from 'vue';
 import type { ChartObject } from '../types/spreadsheet';
@@ -20,59 +22,10 @@ const CHART_COMPONENTS: Record<string, unknown> = {
     radar: Radar,
 };
 
-// ── Number coercion ─────────────────────────────────────────────────────────
-
-/**
- * Robustly extract a numeric value from a CellValue.
- * Handles: numbers, booleans, null, plain numeric strings,
- * and formatted currency strings like "$1,234.56" or "€12,50".
- */
-function toChartNumber(v: unknown): number {
-    if (v == null || v === '') return 0;
-    if (typeof v === 'number') return v;
-    if (typeof v === 'boolean') return v ? 1 : 0;
-    if (typeof v === 'string') {
-        const plain = Number(v);
-        if (!isNaN(plain)) return plain;
-
-        let cleaned = v.trim();
-
-        // USD: $1,234.56 → 1234.56
-        if (cleaned.includes('$')) {
-            cleaned = cleaned.replace(/[$,]/g, '');
-            const n = parseFloat(cleaned);
-            if (!isNaN(n)) return n;
-        }
-
-        // EUR: €1.234,56 → 1234.56
-        if (cleaned.includes('€')) {
-            cleaned = cleaned.replace(/€/g, '').trim();
-            if (/^\d{1,3}(\.\d{3})*(,\d+)?$/.test(cleaned) || /^-?\d{1,3}(\.\d{3})*(,\d+)?$/.test(cleaned)) {
-                cleaned = cleaned.replace(/\./g, '').replace(',', '.');
-            } else if (cleaned.includes(',')) {
-                cleaned = cleaned.replace(',', '.');
-            }
-            const n = parseFloat(cleaned);
-            if (!isNaN(n)) return n;
-        }
-
-        // General fallback
-        const fallback = parseFloat(v.replace(/,/g, ''));
-        if (!isNaN(fallback)) return fallback;
-    }
-    return 0;
-}
-
-// ── CSS var resolver ────────────────────────────────────────────────────────
-
-function cssVar(name: string): string {
-    return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-}
-
 // ── Composable ──────────────────────────────────────────────────────────────
 
 export function useChartData(chart: Ref<ChartObject>, ss: SpreadsheetState) {
-    // ── Reactive theme tracking ──
+    // Reactive theme tracking
     // Chart.js renders to <canvas> and can't use CSS variables, so we resolve
     // them to actual color values. A MutationObserver watches for data-theme
     // changes on <html> so the computed re-evaluates on theme switch.
@@ -89,11 +42,11 @@ export function useChartData(chart: Ref<ChartObject>, ss: SpreadsheetState) {
         themeObserver?.disconnect();
     });
 
-    // ── Chart component ──
+    // Chart component
 
     const chartComponent = computed(() => CHART_COMPONENTS[chart.value.chartType] ?? Bar);
 
-    // ── Chart data ──
+    // Chart data
 
     const chartData = computed(() => {
         const ds = chart.value.dataSource;
@@ -212,7 +165,7 @@ export function useChartData(chart: Ref<ChartObject>, ss: SpreadsheetState) {
         return { labels, datasets };
     });
 
-    // ── Chart options ──
+    // Chart options
 
     const chartOptions = computed((): ChartOptions => {
         void themeKey.value;
@@ -282,4 +235,53 @@ export function useChartData(chart: Ref<ChartObject>, ss: SpreadsheetState) {
     });
 
     return { chartComponent, chartData, chartOptions };
+}
+
+// ── Number coercion ─────────────────────────────────────────────────────────
+
+/**
+ * Robustly extract a numeric value from a CellValue.
+ * Handles: numbers, booleans, null, plain numeric strings,
+ * and formatted currency strings like "$1,234.56" or "€12,50".
+ */
+function toChartNumber(v: unknown): number {
+    if (v == null || v === '') return 0;
+    if (typeof v === 'number') return v;
+    if (typeof v === 'boolean') return v ? 1 : 0;
+    if (typeof v === 'string') {
+        const plain = Number(v);
+        if (!isNaN(plain)) return plain;
+
+        let cleaned = v.trim();
+
+        // USD: $1,234.56 → 1234.56
+        if (cleaned.includes('$')) {
+            cleaned = cleaned.replace(/[$,]/g, '');
+            const n = parseFloat(cleaned);
+            if (!isNaN(n)) return n;
+        }
+
+        // EUR: €1.234,56 → 1234.56
+        if (cleaned.includes('€')) {
+            cleaned = cleaned.replace(/€/g, '').trim();
+            if (/^\d{1,3}(\.\d{3})*(,\d+)?$/.test(cleaned) || /^-?\d{1,3}(\.\d{3})*(,\d+)?$/.test(cleaned)) {
+                cleaned = cleaned.replace(/\./g, '').replace(',', '.');
+            } else if (cleaned.includes(',')) {
+                cleaned = cleaned.replace(',', '.');
+            }
+            const n = parseFloat(cleaned);
+            if (!isNaN(n)) return n;
+        }
+
+        // General fallback
+        const fallback = parseFloat(v.replace(/,/g, ''));
+        if (!isNaN(fallback)) return fallback;
+    }
+    return 0;
+}
+
+// ── CSS var resolver ────────────────────────────────────────────────────────
+
+function cssVar(name: string): string {
+    return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 }

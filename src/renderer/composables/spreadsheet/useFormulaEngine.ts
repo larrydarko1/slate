@@ -1,6 +1,8 @@
-// useFormulaEngine — formula recalculation, reference remapping, and name rewriting.
-// Owns: recalculate(), formula reference shifting/remapping, table/canvas name rewrites.
-// Does NOT own: formula editing mode (useFormulas.ts), cell access (useCells.ts).
+/**
+ * useFormulaEngine — formula recalculation, reference remapping, and name rewriting.
+ * Owns: recalculate(), formula reference shifting/remapping, table/canvas name rewrites.
+ * Does NOT own: formula editing mode (useFormulas.ts), cell access (useCells.ts).
+ */
 
 import type { SpreadsheetCoreState } from './state';
 import type { SpreadsheetHelpers } from './helpers';
@@ -10,8 +12,15 @@ import type { CellDataType } from './engine/cellTypes';
 import { evaluateFormulaTyped } from './engine/formula';
 import { columnLetterToIndex, indexToColumnLetter } from '../../types/spreadsheet';
 
-// ─── Shared keyword list ─────────────────────────────────────────────────────
+export type SpreadsheetFormulaEngine = ReturnType<typeof createFormulaEngine>;
 
+interface FormulaEngineDeps {
+    findTableGlobal: SpreadsheetHelpers['findTableGlobal'];
+    findTableByName: SpreadsheetHelpers['findTableByName'];
+    replaceNameInRef: SpreadsheetHelpers['replaceNameInRef'];
+}
+
+// ─── Shared keyword list ─────────────────────────────────────────────────────
 const FORMULA_KEYWORDS = [
     'TRUE',
     'FALSE',
@@ -53,12 +62,6 @@ const FORMULA_KEYWORDS = [
 ];
 
 // ─── Factory ─────────────────────────────────────────────────────────────────
-
-interface FormulaEngineDeps {
-    findTableGlobal: SpreadsheetHelpers['findTableGlobal'];
-    findTableByName: SpreadsheetHelpers['findTableByName'];
-    replaceNameInRef: SpreadsheetHelpers['replaceNameInRef'];
-}
 
 export function createFormulaEngine(state: SpreadsheetCoreState, deps: FormulaEngineDeps) {
     // ── Recalculation ────────────────────────────────────────────────────────
@@ -412,5 +415,3 @@ export function createFormulaEngine(state: SpreadsheetCoreState, deps: FormulaEn
         rewriteCanvasNameReferences,
     };
 }
-
-export type SpreadsheetFormulaEngine = ReturnType<typeof createFormulaEngine>;

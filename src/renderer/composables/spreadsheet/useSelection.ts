@@ -1,9 +1,13 @@
-// useSelection — cell, row, column, and range selection with keyboard navigation.
-// Owns: selectCell, selectRow/Col, extend selection, moveSelection.
-// Does NOT own: editing (useEditing.ts), helpers (helpers.ts).
+/**
+ * useSelection — cell, row, column, and range selection with keyboard navigation.
+ * Owns: selectCell, selectRow/Col, extend selection, moveSelection.
+ * Does NOT own: editing (useEditing.ts), helpers (helpers.ts).
+ */
 
 import type { SpreadsheetCoreState } from './state';
 import type { SpreadsheetHelpers } from './helpers';
+
+export type SpreadsheetSelection = ReturnType<typeof createSelection>;
 
 interface SelectionDeps {
     findTable: SpreadsheetHelpers['findTable'];
@@ -121,5 +125,3 @@ export function createSelection(state: SpreadsheetCoreState, deps: SelectionDeps
         moveSelection,
     };
 }
-
-export type SpreadsheetSelection = ReturnType<typeof createSelection>;
